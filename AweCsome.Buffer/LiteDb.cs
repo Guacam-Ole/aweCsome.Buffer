@@ -135,6 +135,16 @@ namespace AweCsome.Buffer
             return matches;
         }
 
+        public Stream GetAttachmentStreamById(string id, out string filename, out BufferFileMeta meta)
+        {
+            var fileInfo=_database.FileStorage.FindById(id);
+            filename = fileInfo.Filename;
+            MemoryStream fileStream = new MemoryStream((int)fileInfo.Length);
+            fileInfo.CopyTo(fileStream);
+            meta = GetMetadataFromAttachment(fileInfo.Metadata);
+            return fileStream;
+        }
+
         public List<AweCsomeLibraryFile> GetFilesFromDocLib<T>(string folder)
         {
             var matches = new List<AweCsomeLibraryFile>();
@@ -170,7 +180,23 @@ namespace AweCsome.Buffer
             return doc;
         }
 
-        public void AddAttachment(BufferFileMeta meta, Stream fileStream)
+        private BufferFileMeta GetMetadataFromAttachment(LiteDB.BsonDocument doc)
+        {
+            var meta = new BufferFileMeta
+            {
+                AttachmentType = (BufferFileMeta.AttachmentTypes) Enum.Parse(typeof(BufferFileMeta.AttachmentTypes), doc[nameof(BufferFileMeta.AttachmentType)]),
+                Filename=doc[nameof(BufferFileMeta.Filename)],
+                Folder=doc[nameof(BufferFileMeta.Folder)],
+                Listname=doc[nameof(BufferFileMeta.Listname)],
+                ParentId=doc[nameof(BufferFileMeta.ParentId)],
+                AdditionalInformation=doc[nameof(BufferFileMeta.AdditionalInformation)]
+            };
+
+            meta.SetId(doc[nameof(BufferFileMeta.Id)]);
+            return meta;
+        }
+
+        public string AddAttachment(BufferFileMeta meta, Stream fileStream)
         {
             int calculatedIndex = 0;
             string prefix = GetStringIdFromFilename(meta, true);
@@ -184,6 +210,7 @@ namespace AweCsome.Buffer
             meta.SetId(calculatedIndex);
             var uploadedFile = _database.FileStorage.Upload(GetStringIdFromFilename(meta), meta.Filename, fileStream);
             _database.FileStorage.SetMetadata(uploadedFile.Id, GetMetadataFromAttachment(meta));
+            return uploadedFile.Id;
         }
 
         public int Insert<T>(T item, string listname)
@@ -223,7 +250,7 @@ namespace AweCsome.Buffer
             return "Filename=" + localPath;
         }
 
-        private LiteDB.LiteDatabase GetDatabase(string databaseName, bool isQueue)
+        private LiteDatabase GetDatabase(string databaseName, bool isQueue)
         {
             if (_dbMode == DbModes.Undefined)
             {
@@ -247,7 +274,7 @@ namespace AweCsome.Buffer
                 }
                 else
                 {
-                    return new LiteDB.LiteDatabase(CreateConnectionString(databaseName));
+                    return new LiteDatabase(CreateConnectionString(databaseName));
                 }
             }
         }

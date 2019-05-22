@@ -1,10 +1,10 @@
-﻿using System;
+﻿using AweCsome.Entities;
+using AweCsome.Interfaces;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using AweCsome.Entities;
-using AweCsome.Interfaces;
 
 namespace AweCsome.Buffer
 {
@@ -23,7 +23,7 @@ namespace AweCsome.Buffer
             Queue = new LiteDbQueue(helpers, baseTable, databasename);
         }
 
-       
+
 
         public string AddFolderToLibrary<T>(string folder)
         {
@@ -32,7 +32,7 @@ namespace AweCsome.Buffer
 
         public void AttachFileToItem<T>(int id, string filename, Stream filestream)
         {
-            _db.AddAttachment(new BufferFileMeta
+            string liteAttachmentId = _db.AddAttachment(new BufferFileMeta
             {
                 AttachmentType = BufferFileMeta.AttachmentTypes.Attachment,
                 Filename = filename,
@@ -42,15 +42,16 @@ namespace AweCsome.Buffer
 
             Queue.AddCommand(new Command
             {
-                Action = Command.Actions.UploadAttachment,
+                Action = Command.Actions.AttachFileToItem,
                 ItemId = id,
-                TableName = _helpers.GetListName<T>()
+                TableName = _helpers.GetListName<T>(),
+                Parameters = new object[] { liteAttachmentId }
             });
         }
 
         public string AttachFileToLibrary<T>(string folder, string filename, Stream filestream, T entity)
         {
-            _db.AddAttachment(new BufferFileMeta
+            string liteAttachmentId = _db.AddAttachment(new BufferFileMeta
             {
                 AttachmentType = BufferFileMeta.AttachmentTypes.DocLib,
                 Filename = filename,
@@ -61,8 +62,9 @@ namespace AweCsome.Buffer
 
             Queue.AddCommand(new Command
             {
-                Action = Command.Actions.UploadFile,
-                TableName = _helpers.GetListName<T>()
+                Action = Command.Actions.AttachFileToLibrary,
+                TableName = _helpers.GetListName<T>(),
+                Parameters = new object[] { liteAttachmentId, folder }
             });
 
             return $"{folder}/{filename}";
@@ -133,9 +135,10 @@ namespace AweCsome.Buffer
             });
             Queue.AddCommand(new Command
             {
-                Action = Command.Actions.RemoveAttachment,
+                Action = Command.Actions.RemoveAttachmentFromItem,
                 ItemId = id,
-                TableName = _helpers.GetListName<T>()
+                TableName = _helpers.GetListName<T>(),
+                Parameters = new object[] { filename }
             });
         }
 
@@ -152,7 +155,7 @@ namespace AweCsome.Buffer
                 });
                 Queue.AddCommand(new Command
                 {
-                    Action = Command.Actions.RemoveFile,
+                    Action = Command.Actions.RemoveFileFromLibrary,
                     Parameters = new object[] { filename, path },
                     TableName = _helpers.GetListName<T>()
                 });
@@ -215,7 +218,7 @@ namespace AweCsome.Buffer
                 Action = Command.Actions.Insert,
                 ItemId = itemId,
                 TableName = listname,
-                FullyQualifiedName=typeof(T).FullName
+                FullyQualifiedName = typeof(T).FullName
             });
             return itemId;
         }

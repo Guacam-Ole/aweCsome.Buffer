@@ -1,10 +1,6 @@
 ﻿using AweCsome.Interfaces;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace AweCsome.Buffer
 {
@@ -28,27 +24,23 @@ namespace AweCsome.Buffer
 
         public void CreateTable(Command command)
         {
-            MethodInfo method =_queue.GetMethod<IAweCsomeTable>(q => q.CreateTable<object>());
+            MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.CreateTable<object>());
             _queue.CallGenericMethod(_aweCsomeTable, method, _baseType, command.FullyQualifiedName, null);
         }
 
         public void Insert(Command command)
         {
-            object insertData = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
-            MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.InsertItem<object>(insertData));
-            int newId = (int)_queue.CallGenericMethod(_aweCsomeTable, method, _baseType, command.FullyQualifiedName, new object[] { insertData });
+            object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
+            MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.InsertItem<object>(element));
+            int newId = (int)_queue.CallGenericMethod(_aweCsomeTable, method, _baseType, command.FullyQualifiedName, new object[] { element });
             _queue.UpdateId(_baseType, command.FullyQualifiedName, command.ItemId.Value, newId);
         }
 
         public void Update(Command command)
         {
-
-            throw new NotImplementedException();
-        }
-
-        public void SendMail(Command command)
-        {
-            throw new NotImplementedException();
+            object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
+            MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.UpdateItem(element));
+            _queue.CallGenericMethod(_aweCsomeTable, method, _baseType, command.FullyQualifiedName, new object[] { element });
         }
 
         public void Empty(Command command)
@@ -57,24 +49,41 @@ namespace AweCsome.Buffer
             _queue.CallGenericMethod(_aweCsomeTable, method, _baseType, command.FullyQualifiedName, null);
         }
 
-        public void UploadAttachment(Command command)
+        public void AttachFileToItem(Command command)
         {
-            throw new NotImplementedException();
+            object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
+            var attachmentStream = _queue.GetAttachmentStreamById((string)command.Parameters[0], out string filename, out BufferFileMeta meta);
+
+            MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.AttachFileToItem<object>(command.ItemId.Value, filename, attachmentStream));
+            _queue.CallGenericMethod(_aweCsomeTable, method, _baseType, command.FullyQualifiedName, new object[] { command.ItemId.Value, filename, attachmentStream });
         }
 
-        public void RemoveAttachment(Command command)
+        public void RemoveAttachmentFromItem(Command command)
         {
-            throw new NotImplementedException();
+            object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
+            string filename = (string)command.Parameters[0];
+            MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.DeleteFileFromItem<object>(command.ItemId.Value, filename));
+            _queue.CallGenericMethod(_aweCsomeTable, method, _baseType, command.FullyQualifiedName, new object[] { command.ItemId.Value, filename });
         }
 
-        public void UploadFile(Command command)
+        public void AttachFileToLibrary(Command command)
         {
-            throw new NotImplementedException();
+            object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
+            var attachmentStream = _queue.GetAttachmentStreamById((string)command.Parameters[0], out string filename, out BufferFileMeta meta);
+            string folder = meta.Folder;
+
+            MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.AttachFileToLibrary<object>(folder, filename, attachmentStream, element));
+            _queue.CallGenericMethod(_aweCsomeTable, method, _baseType, command.FullyQualifiedName, new object[] { folder, filename, attachmentStream, element });
         }
 
-        public void RemoveFile(Command command)
+        public void RemoveFileFromLibrary(Command command)
         {
-            throw new NotImplementedException();
+            object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
+            var attachmentStream = _queue.GetAttachmentStreamById((string)command.Parameters[0], out string filename, out BufferFileMeta meta);
+            string folder = meta.Folder;
+
+            MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.DeleteFilesFromDocumentLibrary<object>(folder, new System.Collections.Generic.List<string> { filename }));
+            _queue.CallGenericMethod(_aweCsomeTable, method, _baseType, command.FullyQualifiedName, new object[] { folder, new System.Collections.Generic.List<string> { filename } });
         }
     }
 }

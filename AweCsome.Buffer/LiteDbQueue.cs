@@ -71,8 +71,6 @@ namespace AweCsome.Buffer
             return baseType.Assembly.GetType(fullyQualifiedName, false, true).Name;
         }
 
-    
-
         public object GetFromDbById(Type baseType, string fullyQualifiedName, int id)
         {
             var db = new LiteDb(_helpers, _databaseName);
