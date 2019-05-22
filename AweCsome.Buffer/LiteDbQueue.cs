@@ -42,14 +42,14 @@ namespace AweCsome.Buffer
             GetCollection<Command>(null).Update(command);
         }
 
-        private MethodInfo GetMethod<T>(Expression<Action<T>> expr)
+        public MethodInfo GetMethod<T>(Expression<Action<T>> expr)
         {
             return ((MethodCallExpression)expr.Body)
                 .Method
                 .GetGenericMethodDefinition();
         }
 
-        private object CallGenericMethod(object baseObject, MethodInfo method, Type baseType, string fullyQualifiedName, object[] parameters)
+        public object CallGenericMethod(object baseObject, MethodInfo method, Type baseType, string fullyQualifiedName, object[] parameters)
         {
             Type entityType = baseType.Assembly.GetType(fullyQualifiedName, false, true);
             MethodInfo genericMethod = method.MakeGenericMethod(entityType);
@@ -71,33 +71,9 @@ namespace AweCsome.Buffer
             return baseType.Assembly.GetType(fullyQualifiedName, false, true).Name;
         }
 
-        public void QueueCreateTable(Type baseType, Command command)
-        {
-            MethodInfo method = GetMethod<IAweCsomeTable>(q => q.CreateTable<object>());
-            CallGenericMethod(_aweCsomeTable, method, baseType, command.FullyQualifiedName, null);
-        }
+    
 
-        public void QueueDeleteTable(Type baseType, Command command)
-        {
-            MethodInfo method = GetMethod<IAweCsomeTable>(q => q.DeleteTable<object>());
-            CallGenericMethod(_aweCsomeTable, method, baseType, command.FullyQualifiedName, null);
-        }
-
-        public void QueueEmpty(Type baseType, Command command)
-        {
-            MethodInfo method = GetMethod<IAweCsomeTable>(q => q.Empty<object>());
-            CallGenericMethod(_aweCsomeTable, method, baseType, command.FullyQualifiedName, null);
-        }
-
-        public void QueueInsert(Type baseType, Command command)
-        {
-            object insertData = GetFromDbById(baseType, command.FullyQualifiedName, command.ItemId.Value);
-            MethodInfo method = GetMethod<IAweCsomeTable>(q => q.InsertItem<object>(insertData));
-            int newId = (int)CallGenericMethod(_aweCsomeTable, method, baseType, command.FullyQualifiedName, new object[] { insertData });
-            UpdateId(baseType, command.FullyQualifiedName, command.ItemId.Value, newId);
-        }
-
-        private object GetFromDbById(Type baseType, string fullyQualifiedName, int id)
+        public object GetFromDbById(Type baseType, string fullyQualifiedName, int id)
         {
             var db = new LiteDb(_helpers, _databaseName);
             MethodInfo method = GetMethod<LiteDb>(q => q.GetCollection<object>());
@@ -106,7 +82,7 @@ namespace AweCsome.Buffer
             return collection.FindById(id);
         }
 
-        private void UpdateId(Type baseType, string fullyQualifiedName, int oldId, int newId)
+        public void UpdateId(Type baseType, string fullyQualifiedName, int oldId, int newId)
         {
             var db = new LiteDb(_helpers, _databaseName);
             MethodInfo method = GetMethod<LiteDb>(q => q.GetCollection<object>());
@@ -233,16 +209,17 @@ namespace AweCsome.Buffer
 
         public void Sync(Type baseType)
         {
+            var execution = new QueueCommandExecution(this, _aweCsomeTable, baseType);
             var queue = Read().Where(q => q.State == Command.States.Pending).OrderBy(q => q.Id).ToList();
             _log.Info($"Working with queue ({queue.Count} pending commands");
             foreach (var command in queue)
             {
                 _log.Debug($"storing command {command}");
-                string commandAction = $"Queue{command.Action}";
+                string commandAction = $"{command.Action}";
                 try
                 {
-                    MethodInfo method = GetType().GetMethod(commandAction);
-                    method.Invoke(this, new object[] { baseType, command });
+                    MethodInfo method = typeof(QueueCommandExecution).GetMethod(commandAction);
+                    method.Invoke( execution, new object[] {  command });
                     command.State = Command.States.Succeeded;
                     Update(command);
                 }

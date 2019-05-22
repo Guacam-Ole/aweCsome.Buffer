@@ -191,6 +191,7 @@
     <Compile Include="MemoryDatabase.cs" />
     <Compile Include="LiteDb.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="QueueCommandExecution.cs" />
     <Compile Include="TableBufferState.cs" />
   </ItemGroup>
   <ItemGroup>
