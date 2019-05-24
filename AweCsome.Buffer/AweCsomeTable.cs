@@ -407,5 +407,15 @@ namespace AweCsome.Buffer
             localFiles.ToList().ForEach(q => spFiles.Add(q.Key, q.Value));
             return spFiles;
         }
+
+        public bool HasChangesSince<T>(DateTime compareDate) where T : new()
+        {
+            throw new NotImplementedException();
+        }
+
+        public List<KeyValuePair<AweCsomeListUpdate, T>> ModifiedItemsSince<T>(DateTime compareDate) where T : new()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

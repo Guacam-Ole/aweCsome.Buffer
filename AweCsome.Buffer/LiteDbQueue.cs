@@ -42,6 +42,11 @@ namespace AweCsome.Buffer
             GetCollection<Command>(null).Update(command);
         }
 
+        private void Delete(Command command)
+        {
+            GetCollection<Command>().Delete(command.Id);
+        }
+
         public MethodInfo GetMethod<T>(Expression<Action<T>> expr)
         {
             return ((MethodCallExpression)expr.Body)
@@ -185,7 +190,7 @@ namespace AweCsome.Buffer
                         foreach (var virtualDynamicProperty in virtualDynamicProperties)
                         {
                             var attribute = virtualDynamicProperty.GetCustomAttribute<VirtualLookupAttribute>();
-                            if (element[attribute.DynamicTargetProperty]==changedListname)
+                            if (element[attribute.DynamicTargetProperty] == changedListname)
                             {
                                 if ((int?)element[virtualDynamicProperty.Name] == oldId)
                                 {
@@ -205,8 +210,23 @@ namespace AweCsome.Buffer
             DropCollection<Command>(null);
         }
 
+        public void BackSync<T>()
+        {
+            var listName = _helpers.GetListName<T>();
+            
+
+        }
+
         public void Sync(Type baseType)
         {
+            // Delete old Entries:
+            var oldEntries = Read().Where(q => q.State == Command.States.Succeeded);
+            _log.Debug($"Deleting {oldEntries.Count()} old entries from queue");
+            foreach (var oldEntry in oldEntries)
+            {
+                Delete(oldEntry);
+            }
+
             var execution = new QueueCommandExecution(this, _aweCsomeTable, baseType);
             var queue = Read().Where(q => q.State == Command.States.Pending).OrderBy(q => q.Id).ToList();
             _log.Info($"Working with queue ({queue.Count} pending commands");
@@ -217,7 +237,7 @@ namespace AweCsome.Buffer
                 try
                 {
                     MethodInfo method = typeof(QueueCommandExecution).GetMethod(commandAction);
-                    method.Invoke( execution, new object[] {  command });
+                    method.Invoke(execution, new object[] { command });
                     command.State = Command.States.Succeeded;
                     Update(command);
                 }
@@ -227,6 +247,7 @@ namespace AweCsome.Buffer
                     break;
                 }
             }
+
         }
     }
 }

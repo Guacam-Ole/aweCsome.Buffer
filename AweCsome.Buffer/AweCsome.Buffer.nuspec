@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<package>
+  <metadata>
+    <id>AweCsome.2013</id>
+    <version>$version$</version>
+    <title>AweCsome Framework - BUFFER for SharePoint</title>
+    <authors>Ole Albers ( https://dotnet.work )</authors>
+    <owners>Ole Albers</owners>
+    <licenseUrl>https://github.com/OleAlbers/aweCsome.Buffer/blob/develop/LICENSE.md</licenseUrl>
+    <projectUrl>https://github.com/OleAlbers/aweCsome.Buffer</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>The AweCsome-Framework is like an Entity Framework for SharePoint Provider Hosted Add-Ins. It uses CSOM to communicate with SharePoint. This is a buffer extension for faster workload.</description>
+    <releaseNotes>This is a PreRelease</releaseNotes>
+    <copyright>Copyright 2019 Ole Albers</copyright>
+    <tags>SharePoint, Entity, Office, AddInModel, AppModel</tags>    
+	<dependencies>
+		<group targetFramework="net452">	
+			<dependency id="SharePointPnPCore2013" version="3.6.1902" />			
+			<dependency id="log4net" version="2.0.8" />
+		</group>
+	</dependencies>
+  </metadata>
+  <files>
+    <file src="bin\Debug\AweCsome.Buffer.dll" target="lib\net452\AweCsome.Buffer.dll" />
+    <file src="bin\Debug\AweCsome.Buffer.pdb" target="lib\net452\AweCsome.Buffer.pdb" />
+    <file src="..\..\.github\README.md" target="" />
+  </files>
+</package>
