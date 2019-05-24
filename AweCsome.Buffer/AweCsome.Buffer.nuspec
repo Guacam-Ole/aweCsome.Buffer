@@ -24,6 +24,6 @@
   <files>
     <file src="bin\Debug\AweCsome.Buffer.dll" target="lib\net452\AweCsome.Buffer.dll" />
     <file src="bin\Debug\AweCsome.Buffer.pdb" target="lib\net452\AweCsome.Buffer.pdb" />
-    <file src="..\..\.github\README.md" target="" />
+    <file src="..\README.md" target="" />
   </files>
 </package>
