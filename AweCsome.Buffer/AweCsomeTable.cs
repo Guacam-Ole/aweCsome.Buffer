@@ -1,4 +1,6 @@
-﻿using AweCsome.Entities;
+﻿using AweCsome.Attributes.FieldAttributes;
+using AweCsome.Buffer.Interfaces;
+using AweCsome.Entities;
 using AweCsome.Interfaces;
 using System;
 using System.Collections.Generic;
@@ -8,18 +10,18 @@ using System.Reflection;
 
 namespace AweCsome.Buffer
 {
-    public class AweCsomeTable : IAweCsomeTable
+    public class AweCsomeTable : IAweCsomeTable, IBufferTable
     {
         private IAweCsomeTable _baseTable;
         private IAweCsomeHelpers _helpers;
         private LiteDb _db;
-        public LiteDbQueue Queue { get; }
+        public ILiteDbQueue Queue { get; }
 
         public AweCsomeTable(IAweCsomeTable baseTable, IAweCsomeHelpers helpers, string databasename)
         {
             _baseTable = baseTable;
             _helpers = helpers;
-            _db = new LiteDb(helpers, databasename);
+            _db = new LiteDb(helpers, baseTable, databasename);
             Queue = new LiteDbQueue(helpers, baseTable, databasename);
         }
 
@@ -309,7 +311,13 @@ namespace AweCsome.Buffer
                 property = property ?? typeof(T).GetProperty(fieldname);
                 if (property == null) throw new MissingFieldException($"Field '{fieldname}' cannot be found");
                 if (!property.CanRead) throw new FieldAccessException($"Field '{fieldname}' cannot be queried");
-                if (property.GetValue(item) == value) matches.Add(item);
+                var propertyValue = property.GetValue(item);
+                var lookupAttribute = property.GetCustomAttribute<LookupAttribute>();
+                var peopleAttribute = property.GetCustomAttribute<UserAttribute>();
+                if (property.PropertyType == typeof(KeyValuePair<int, string>)) propertyValue = ((KeyValuePair<int, string>)propertyValue).Key;
+                if (property.PropertyType == typeof(Dictionary<int, string>)) propertyValue = ((Dictionary<int, string>)propertyValue).Keys.ToArray();
+                if (propertyValue.Equals(value)) matches.Add(item);
+
             }
             return matches;
         }
@@ -416,6 +424,21 @@ namespace AweCsome.Buffer
         public List<KeyValuePair<AweCsomeListUpdate, T>> ModifiedItemsSince<T>(DateTime compareDate) where T : new()
         {
             throw new NotImplementedException();
+        }
+
+        public bool Exists<T>()
+        {
+            return _db.GetCollectionNames().Contains(typeof(T).Name);
+        }
+
+        public void ReadAllLists(Type baseType)
+        {
+            _db.ReadAllLists(baseType);
+        }
+
+        public void ReadAllFromList<T>() where T : new()
+        {
+            _db.ReadAllFromList<T>();
         }
     }
 }

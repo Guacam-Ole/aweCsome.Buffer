@@ -34,9 +34,6 @@
     <Reference Include="AngleSharp, Version=0.12.1.0, Culture=neutral, PublicKeyToken=e83494dcdc6d31ea, processorArchitecture=MSIL">
       <HintPath>..\packages\AngleSharp.0.12.1\lib\net46\AngleSharp.dll</HintPath>
     </Reference>
-    <Reference Include="AweCsome.Interfaces, Version=0.9.5.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\AweCsome.Interfaces.0.9.5-CI-20190524.1\lib\net452\AweCsome.Interfaces.dll</HintPath>
-    </Reference>
     <Reference Include="LiteDB, Version=4.1.4.0, Culture=neutral, PublicKeyToken=4ee40123013c9f27, processorArchitecture=MSIL">
       <HintPath>..\packages\LiteDB.4.1.4\lib\net40\LiteDB.dll</HintPath>
     </Reference>
@@ -196,6 +193,9 @@
     <Compile Include="BufferState.cs" />
     <Compile Include="Command.cs" />
     <Compile Include="Entities\BufferedAweCsomeListItem.cs" />
+    <Compile Include="Interfaces\IBufferTable.cs" />
+    <Compile Include="Interfaces\ILiteDb.cs" />
+    <Compile Include="Interfaces\ILiteDbQueue.cs" />
     <Compile Include="LiteDbQueue.cs" />
     <Compile Include="MemoryDatabase.cs" />
     <Compile Include="LiteDb.cs" />
@@ -206,6 +206,12 @@
   <ItemGroup>
     <None Include="app.config" />
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\aweCsome\AweCsomeFramework\AweCsome.Interfaces.csproj">
+      <Project>{5db02ff9-0993-4b60-8d23-0aa62935612f}</Project>
+      <Name>AweCsome.Interfaces</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

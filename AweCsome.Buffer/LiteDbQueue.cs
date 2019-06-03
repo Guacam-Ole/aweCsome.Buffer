@@ -1,5 +1,6 @@
 ﻿using AweCsome.Attributes.FieldAttributes;
 using AweCsome.Buffer.Attributes;
+using AweCsome.Buffer.Interfaces;
 using AweCsome.Interfaces;
 using log4net;
 using System;
@@ -10,15 +11,14 @@ using System.Reflection;
 
 namespace AweCsome.Buffer
 {
-    public class LiteDbQueue : LiteDb
+    public class LiteDbQueue : LiteDb, ILiteDbQueue, ILiteDb
     {
         private static object _queueLock = new object();
         private readonly ILog _log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
-        private IAweCsomeTable _aweCsomeTable;
+    
 
-        public LiteDbQueue(IAweCsomeHelpers helpers, IAweCsomeTable aweCsomeTable, string databaseName) : base(helpers, databaseName, true)
+        public LiteDbQueue(IAweCsomeHelpers helpers, IAweCsomeTable aweCsomeTable, string databaseName) : base(helpers, aweCsomeTable,  databaseName, true)
         {
-            _aweCsomeTable = aweCsomeTable;
         }
 
         public void AddCommand(Command command)
@@ -47,29 +47,9 @@ namespace AweCsome.Buffer
             GetCollection<Command>().Delete(command.Id);
         }
 
-        public MethodInfo GetMethod<T>(Expression<Action<T>> expr)
-        {
-            return ((MethodCallExpression)expr.Body)
-                .Method
-                .GetGenericMethodDefinition();
-        }
 
-        public object CallGenericMethod(object baseObject, MethodInfo method, Type baseType, string fullyQualifiedName, object[] parameters)
-        {
-            Type entityType = baseType.Assembly.GetType(fullyQualifiedName, false, true);
-            MethodInfo genericMethod = method.MakeGenericMethod(entityType);
-            var paams = genericMethod.GetParameters();
-            try
-            {
-                var retVal = genericMethod.Invoke(baseObject, parameters);
-                return retVal;
-            }
-            catch (Exception ex)
-            {
-                if (ex.InnerException != null && ex.InnerException.GetType() != typeof(Exception)) throw ex.InnerException;
-                throw;
-            }
-        }
+
+      
 
         private string GetListNameFromFullyQualifiedName(Type baseType, string fullyQualifiedName)
         {
@@ -78,7 +58,7 @@ namespace AweCsome.Buffer
 
         public object GetFromDbById(Type baseType, string fullyQualifiedName, int id)
         {
-            var db = new LiteDb(_helpers, _databaseName);
+            var db = new LiteDb(_helpers, _aweCsomeTable, _databaseName);
             MethodInfo method = GetMethod<LiteDb>(q => q.GetCollection<object>());
             dynamic collection = CallGenericMethod(db, method, baseType, fullyQualifiedName, null);
 
@@ -87,7 +67,7 @@ namespace AweCsome.Buffer
 
         public void UpdateId(Type baseType, string fullyQualifiedName, int oldId, int newId)
         {
-            var db = new LiteDb(_helpers, _databaseName);
+            var db = new LiteDb(_helpers, _aweCsomeTable, _databaseName);
             MethodInfo method = GetMethod<LiteDb>(q => q.GetCollection<object>());
             dynamic collection = CallGenericMethod(db, method, baseType, fullyQualifiedName, null);
             var entity = collection.FindById(oldId);
@@ -115,7 +95,7 @@ namespace AweCsome.Buffer
         private void UpdateLookups(Type baseType, string changedListname, int oldId, int newId)
         {
             // TODO: Update Lookups after changing Id
-            var db = new LiteDb(_helpers, _databaseName);
+            var db = new LiteDb(_helpers, _aweCsomeTable, _databaseName);
             List<string> collectionNames = db.GetCollectionNames().ToList();
             var subTypes = baseType.Assembly.GetTypes();
             foreach (var subType in subTypes)
@@ -205,15 +185,15 @@ namespace AweCsome.Buffer
             }
         }
 
-        public void EmptyCommandCollection()
+        public void GetChangesFromList<T>() where T : new()
         {
-            DropCollection<Command>(null);
+            return;
         }
 
-        public void BackSync<T>()
+       
+
+        public void GetAllChanges()
         {
-            var listName = _helpers.GetListName<T>();
-            
 
         }
 

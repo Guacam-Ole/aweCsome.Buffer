@@ -3,15 +3,20 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
 using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
 using System.Web.Hosting;
+using AweCsome.Buffer.Interfaces;
 using AweCsome.Entities;
 using AweCsome.Interfaces;
 using LiteDB;
+using log4net;
 
 namespace AweCsome.Buffer
 {
-    public class LiteDb
+    public class LiteDb:ILiteDb
     {
+        private readonly ILog _log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
         private Random random = new Random();
         private const string RandomChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
         private const string PrefixAttachment = "UploadAttachment_";
@@ -23,10 +28,12 @@ namespace AweCsome.Buffer
         private LiteDB.LiteDatabase _database;
         protected IAweCsomeHelpers _helpers;
         protected string _databaseName;
+        protected IAweCsomeTable _aweCsomeTable;
 
-        public LiteDb(IAweCsomeHelpers helpers, string databaseName, bool queue = false)
+        public LiteDb(IAweCsomeHelpers helpers, IAweCsomeTable aweCsomeTable, string databaseName, bool queue = false)
         {
             _databaseName = databaseName;
+            _aweCsomeTable = aweCsomeTable;
             if (queue) databaseName += ".QUEUE";
             _database = GetDatabase(databaseName, queue);
             _helpers = helpers;
@@ -217,7 +224,8 @@ namespace AweCsome.Buffer
         {
 
             var collection = GetCollection<T>(listname);
-            int minId = collection.Min("Id").AsInt32;
+            collection.EnsureIndex("Id");
+            int minId = collection.Min().AsInt32;
             if (minId > 0) minId = 0;
             minId--;
             _helpers.SetId<T>(item, minId);
@@ -225,7 +233,7 @@ namespace AweCsome.Buffer
            return  collection.Insert(item);
         }
 
-        public LiteDB.LiteCollection<T> GetCollection<T>()
+        public LiteCollection<T> GetCollection<T>()
         {
             return _database.GetCollection<T>();
         }
@@ -249,6 +257,7 @@ namespace AweCsome.Buffer
             }
             return "Filename=" + localPath;
         }
+
 
         private LiteDatabase GetDatabase(string databaseName, bool isQueue)
         {
@@ -276,6 +285,60 @@ namespace AweCsome.Buffer
                 {
                     return new LiteDatabase(CreateConnectionString(databaseName));
                 }
+            }
+        }
+
+        public object CallGenericMethod(object baseObject, MethodInfo method, Type baseType, string fullyQualifiedName, object[] parameters)
+        {
+            return CallGenericMethod(baseObject, method, baseType, baseType.Assembly.GetType(fullyQualifiedName, false, true), parameters);
+        }
+
+        public object CallGenericMethod(object baseObject, MethodInfo method, Type baseType, Type entityType, object[] parameters)
+        {
+            MethodInfo genericMethod = method.MakeGenericMethod(entityType);
+            var paams = genericMethod.GetParameters();
+            try
+            {
+                var retVal = genericMethod.Invoke(baseObject, parameters);
+                return retVal;
+            }
+            catch (Exception ex)
+            {
+                if (ex.InnerException != null && ex.InnerException.GetType() != typeof(Exception)) throw ex.InnerException;
+                throw;
+            }
+        }
+
+        public void ReadAllFromList<T>() where T : new()
+        {
+            if (!_aweCsomeTable.Exists<T>()) return;
+            var spItems = _aweCsomeTable.SelectAllItems<T>();
+            _log.Debug($"Replacing Data in localDB for {typeof(T).Name} ({spItems.Count} items)");
+
+            DropCollection<T>(null);
+            var targetCollection = GetCollection<T>();
+            foreach (var item in spItems)
+            {
+                targetCollection.Insert(item);
+            }
+        }
+
+        public MethodInfo GetMethod<T>(Expression<Action<T>> expr)
+        {
+            return ((MethodCallExpression)expr.Body)
+                .Method
+                .GetGenericMethodDefinition();
+        }
+
+        public void ReadAllLists(Type baseType)
+        {
+            foreach (var type in baseType.Assembly.GetTypes())
+            {
+                var constructor = type.GetConstructor(Type.EmptyTypes);
+                if (constructor == null)
+                    continue;
+                MethodInfo method = GetMethod<LiteDbQueue>(q => q.ReadAllFromList<object>());
+                CallGenericMethod(this, method, baseType, type, null);
             }
         }
     }
