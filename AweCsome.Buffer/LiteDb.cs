@@ -55,13 +55,13 @@ namespace AweCsome.Buffer
 
         private string CleanUpLiteDbId(string dirtyName)
         {
-            return dirtyName.Replace("/", "").Replace("\\", "").Replace("-", "_");
+            return dirtyName.Replace("/", "").Replace("\\", "").Replace("-", "_").Replace(" ","");
         }
 
         private string GetStringIdFromFilename(BufferFileMeta meta, bool pathOnly = false)
         {
             string stringId = $"{meta.AttachmentType}_{meta.Listname}_{meta.Folder}_{meta.ParentId}_";
-            if (!pathOnly) stringId += "{Rand()}_{meta.Filename}";
+            if (!pathOnly) stringId += $"{Rand()}_{meta.Filename}";
             return CleanUpLiteDbId(stringId);
         }
 
@@ -142,8 +142,9 @@ namespace AweCsome.Buffer
             return matches;
         }
 
-        public Stream GetAttachmentStreamById(string id, out string filename, out BufferFileMeta meta)
+        public MemoryStream GetAttachmentStreamById(string id, out string filename, out BufferFileMeta meta)
         {
+            
             var fileInfo=_database.FileStorage.FindById(id);
             filename = fileInfo.Filename;
             MemoryStream fileStream = new MemoryStream((int)fileInfo.Length);
@@ -182,7 +183,7 @@ namespace AweCsome.Buffer
             doc[nameof(BufferFileMeta.Id)] = meta.Id;
             doc[nameof(BufferFileMeta.Listname)] = meta.Listname;
             doc[nameof(BufferFileMeta.ParentId)] = meta.ParentId;
-            doc[nameof(BufferFileMeta.AdditionalInformation)] = null; // meta.AdditionalInformation; // TODO; Serialize AdditionalInformation property
+            doc[nameof(BufferFileMeta.AdditionalInformation)] = meta.AdditionalInformation; // meta.AdditionalInformation; // TODO; Serialize AdditionalInformation property
 
             return doc;
         }
@@ -245,15 +246,11 @@ namespace AweCsome.Buffer
 
         private string CreateConnectionString(string databasename)
         {
-            string localPath = HostingEnvironment.MapPath("/db/" + databasename);
+            string localPath = HostingEnvironment.MapPath( databasename);
             if (localPath == null)
             {
                 // No Web environment
-                localPath = System.Environment.CurrentDirectory + "\\" + databasename;
-            }
-            else
-            {
-                //     localPath = localPath.Replace("https", "").Replace("http", "").Replace(":", "").Replace("/", "");
+                localPath = System.Environment.CurrentDirectory+ "\\"+ databasename;
             }
             return "Filename=" + localPath;
         }
@@ -288,12 +285,12 @@ namespace AweCsome.Buffer
             }
         }
 
-        public object CallGenericMethod(object baseObject, MethodInfo method, Type baseType, string fullyQualifiedName, object[] parameters)
+        public object CallGenericMethodByName(object baseObject, MethodInfo method, Type baseType, string fullyQualifiedName, object[] parameters)
         {
-            return CallGenericMethod(baseObject, method, baseType, baseType.Assembly.GetType(fullyQualifiedName, false, true), parameters);
+            return CallGenericMethod(baseObject, method,  baseType.Assembly.GetType(fullyQualifiedName, false, true), parameters);
         }
 
-        public object CallGenericMethod(object baseObject, MethodInfo method, Type baseType, Type entityType, object[] parameters)
+        public object CallGenericMethod(object baseObject, MethodInfo method,  Type entityType, object[] parameters)
         {
             MethodInfo genericMethod = method.MakeGenericMethod(entityType);
             var paams = genericMethod.GetParameters();
@@ -309,6 +306,12 @@ namespace AweCsome.Buffer
             }
         }
 
+        public void ReadAllFromList(Type entityType)
+        {
+            MethodInfo method = GetMethod<LiteDbQueue>(q => q.ReadAllFromList<object>());
+            CallGenericMethod(this, method, entityType, null);
+        }
+
         public void ReadAllFromList<T>() where T : new()
         {
             if (!_aweCsomeTable.Exists<T>()) return;
@@ -316,6 +319,12 @@ namespace AweCsome.Buffer
             _log.Debug($"Replacing Data in localDB for {typeof(T).Name} ({spItems.Count} items)");
 
             DropCollection<T>(null);
+            if (spItems.Count == 0) return;
+            if (typeof(T).GetProperty("Id")==null)
+            {
+                _log.Warn($"Collection {typeof(T).Name} has no ID-Field. Cannot insert");
+                return;
+            }
             var targetCollection = GetCollection<T>();
             foreach (var item in spItems)
             {
@@ -338,7 +347,7 @@ namespace AweCsome.Buffer
                 if (constructor == null)
                     continue;
                 MethodInfo method = GetMethod<LiteDbQueue>(q => q.ReadAllFromList<object>());
-                CallGenericMethod(this, method, baseType, type, null);
+                CallGenericMethod(this, method, type, null);
             }
         }
     }

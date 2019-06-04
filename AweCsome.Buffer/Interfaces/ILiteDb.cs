@@ -13,7 +13,7 @@ namespace AweCsome.Buffer.Interfaces
 {
     public interface ILiteDb
     {
-        Stream GetAttachmentStreamById(string id, out string filename, out BufferFileMeta meta);
+        MemoryStream GetAttachmentStreamById(string id, out string filename, out BufferFileMeta meta);
         List<AweCsomeLibraryFile> GetFilesFromDocLib<T>(string folder);
         string AddAttachment(BufferFileMeta meta, Stream fileStream);
         int Insert<T>(T item, string listname);
@@ -28,7 +28,7 @@ namespace AweCsome.Buffer.Interfaces
         void ReadAllFromList<T>() where T : new();
         void ReadAllLists(Type baseType);
         MethodInfo GetMethod<T>(Expression<Action<T>> expr);
-        object CallGenericMethod(object baseObject, MethodInfo method, Type baseType, string fullyQualifiedName, object[] parameters);
-        object CallGenericMethod(object baseObject, MethodInfo method, Type baseType, Type entityType, object[] parameters);
+        object CallGenericMethodByName(object baseObject, MethodInfo method, Type baseType, string fullyQualifiedName, object[] parameters);
+        object CallGenericMethod(object baseObject, MethodInfo method, Type entityType, object[] parameters);
     }
 }

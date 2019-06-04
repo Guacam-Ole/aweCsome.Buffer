@@ -6,7 +6,6 @@ using log4net;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Reflection;
 
 namespace AweCsome.Buffer
@@ -15,19 +14,20 @@ namespace AweCsome.Buffer
     {
         private static object _queueLock = new object();
         private readonly ILog _log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
-    
 
-        public LiteDbQueue(IAweCsomeHelpers helpers, IAweCsomeTable aweCsomeTable, string databaseName) : base(helpers, aweCsomeTable,  databaseName, true)
+
+        public LiteDbQueue(IAweCsomeHelpers helpers, IAweCsomeTable aweCsomeTable, string databaseName) : base(helpers, aweCsomeTable, databaseName, true)
         {
         }
 
-        public void AddCommand(Command command)
+        public void AddCommand<T>(Command command)
         {
             lock (_queueLock)
             {
                 var commandCollection = GetCollection<Command>();
                 var maxId = commandCollection.Max(q => q.Id).AsInt32;
                 command.Id = maxId + 1;
+                command.FullyQualifiedName = typeof(T).FullName;
                 commandCollection.Insert(command);
             }
         }
@@ -47,10 +47,6 @@ namespace AweCsome.Buffer
             GetCollection<Command>().Delete(command.Id);
         }
 
-
-
-      
-
         private string GetListNameFromFullyQualifiedName(Type baseType, string fullyQualifiedName)
         {
             return baseType.Assembly.GetType(fullyQualifiedName, false, true).Name;
@@ -60,16 +56,22 @@ namespace AweCsome.Buffer
         {
             var db = new LiteDb(_helpers, _aweCsomeTable, _databaseName);
             MethodInfo method = GetMethod<LiteDb>(q => q.GetCollection<object>());
-            dynamic collection = CallGenericMethod(db, method, baseType, fullyQualifiedName, null);
+            dynamic collection = CallGenericMethodByName(db, method, baseType, fullyQualifiedName, null);
 
             return collection.FindById(id);
+        }
+
+        public System.IO.MemoryStream GetAttachmentStreamFromDbById(string id, out string filename, out BufferFileMeta meta)
+        {
+            var db = new LiteDb(_helpers, _aweCsomeTable, _databaseName);
+            return db.GetAttachmentStreamById(id, out filename, out meta);
         }
 
         public void UpdateId(Type baseType, string fullyQualifiedName, int oldId, int newId)
         {
             var db = new LiteDb(_helpers, _aweCsomeTable, _databaseName);
             MethodInfo method = GetMethod<LiteDb>(q => q.GetCollection<object>());
-            dynamic collection = CallGenericMethod(db, method, baseType, fullyQualifiedName, null);
+            dynamic collection = CallGenericMethodByName(db, method, baseType, fullyQualifiedName, null);
             var entity = collection.FindById(oldId);
             entity.Id = newId;
 
@@ -190,11 +192,8 @@ namespace AweCsome.Buffer
             return;
         }
 
-       
-
         public void GetAllChanges()
         {
-
         }
 
         public void Sync(Type baseType)
@@ -207,11 +206,17 @@ namespace AweCsome.Buffer
                 Delete(oldEntry);
             }
 
-            var execution = new QueueCommandExecution(this, _aweCsomeTable, baseType);
-            var queue = Read().Where(q => q.State == Command.States.Pending).OrderBy(q => q.Id).ToList();
-            _log.Info($"Working with queue ({queue.Count} pending commands");
-            foreach (var command in queue)
+            var execution = new QueueCommandExecution(this,   _aweCsomeTable, baseType);
+
+
+            var queueCount = Read().Where(q => q.State == Command.States.Pending).Count();
+
+            _log.Info($"Working with queue ({queueCount} pending commands");
+            Command command;
+            int realCount = 0;
+            while ((command = Read().Where(q => q.State == Command.States.Pending).OrderBy(q => q.Id).ToList().FirstOrDefault())!=null)
             {
+                realCount++;
                 _log.Debug($"storing command {command}");
                 string commandAction = $"{command.Action}";
                 try
@@ -226,8 +231,9 @@ namespace AweCsome.Buffer
                     _log.Error($"Cannot find method for action '{commandAction}'", ex);
                     break;
                 }
-            }
 
+            }
+            _log.Debug($"{realCount} of {queueCount} items synced (can be higher if new items have been added while in loop)");
         }
     }
 }

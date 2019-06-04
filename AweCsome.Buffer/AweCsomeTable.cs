@@ -2,6 +2,7 @@
 using AweCsome.Buffer.Interfaces;
 using AweCsome.Entities;
 using AweCsome.Interfaces;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -25,8 +26,6 @@ namespace AweCsome.Buffer
             Queue = new LiteDbQueue(helpers, baseTable, databasename);
         }
 
-
-
         public string AddFolderToLibrary<T>(string folder)
         {
             return _baseTable.AddFolderToLibrary<T>(folder);   // NOT buffered
@@ -42,7 +41,7 @@ namespace AweCsome.Buffer
                 ParentId = id
             }, filestream);
 
-            Queue.AddCommand(new Command
+            Queue.AddCommand<T>(new Command
             {
                 Action = Command.Actions.AttachFileToItem,
                 ItemId = id,
@@ -59,10 +58,10 @@ namespace AweCsome.Buffer
                 Filename = filename,
                 Listname = _helpers.GetListName<T>(),
                 Folder = folder,
-                AdditionalInformation = entity
+                AdditionalInformation = JsonConvert.SerializeObject(entity, Formatting.Indented)
             }, filestream);
 
-            Queue.AddCommand(new Command
+            Queue.AddCommand<T>(new Command
             {
                 Action = Command.Actions.AttachFileToLibrary,
                 TableName = _helpers.GetListName<T>(),
@@ -135,7 +134,7 @@ namespace AweCsome.Buffer
                 AttachmentType = BufferFileMeta.AttachmentTypes.Attachment,
                 Filename = filename
             });
-            Queue.AddCommand(new Command
+            Queue.AddCommand<object>(new Command
             {
                 Action = Command.Actions.RemoveAttachmentFromItem,
                 ItemId = id,
@@ -155,7 +154,7 @@ namespace AweCsome.Buffer
                     Filename = filename,
                     Folder = path
                 });
-                Queue.AddCommand(new Command
+                Queue.AddCommand<object>(new Command
                 {
                     Action = Command.Actions.RemoveFileFromLibrary,
                     Parameters = new object[] { filename, path },
@@ -173,7 +172,7 @@ namespace AweCsome.Buffer
         public void DeleteItemById<T>(int id)
         {
             _db.GetCollection<T>().Delete(id);
-            Queue.AddCommand(new Command
+            Queue.AddCommand<object>(new Command
             {
                 Action = Command.Actions.Delete,
                 ItemId = id,
@@ -198,11 +197,10 @@ namespace AweCsome.Buffer
         public void Empty<T>()
         {
             _db.GetCollection<T>().Delete(LiteDB.Query.All());
-            Queue.AddCommand(new Command
+            Queue.AddCommand<T>(new Command
             {
                 Action = Command.Actions.Empty,
-                TableName = _helpers.GetListName<T>(),
-                FullyQualifiedName = typeof(T).FullName
+                TableName = _helpers.GetListName<T>()
             });
         }
 
@@ -215,12 +213,11 @@ namespace AweCsome.Buffer
         {
             string listname = _helpers.GetListName<T>();
             int itemId = _db.Insert(entity, listname);
-            Queue.AddCommand(new Command
+            Queue.AddCommand<T>(new Command
             {
                 Action = Command.Actions.Insert,
                 ItemId = itemId,
-                TableName = listname,
-                FullyQualifiedName = typeof(T).FullName
+                TableName = listname
             });
             return itemId;
         }
@@ -245,7 +242,7 @@ namespace AweCsome.Buffer
             likesCount++;
 
             _db.GetCollection<T>().Update(item);
-            Queue.AddCommand(new Command
+            Queue.AddCommand<T>(new Command
             {
                 Action = Command.Actions.Update,
                 ItemId = id,
@@ -380,7 +377,7 @@ namespace AweCsome.Buffer
             likesCount--;
 
             _db.GetCollection<T>().Update(item);
-            Queue.AddCommand(new Command
+            Queue.AddCommand<T>(new Command
             {
                 Action = Command.Actions.Update,
                 ItemId = id,
@@ -392,7 +389,7 @@ namespace AweCsome.Buffer
         public void UpdateItem<T>(T entity)
         {
             _db.GetCollection<T>().Update(entity);
-            Queue.AddCommand(new Command
+            Queue.AddCommand<T>(new Command
             {
                 Action = Command.Actions.Update,
                 ItemId = _helpers.GetId(entity),
@@ -439,6 +436,11 @@ namespace AweCsome.Buffer
         public void ReadAllFromList<T>() where T : new()
         {
             _db.ReadAllFromList<T>();
+        }
+
+        public void ReadAllFromList(Type entityType)
+        {
+            _db.ReadAllFromList(entityType);
         }
     }
 }

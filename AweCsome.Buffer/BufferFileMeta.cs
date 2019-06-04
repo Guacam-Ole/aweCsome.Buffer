@@ -9,7 +9,7 @@
         public string Filename { get; set; }
         public AttachmentTypes AttachmentType { get; set; }
         public string Folder { get; set; }
-        public object AdditionalInformation { get; set; }
+        public string AdditionalInformation { get; set; }
 
         public void SetId(int id)
         {
