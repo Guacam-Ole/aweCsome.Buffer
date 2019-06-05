@@ -16,7 +16,7 @@ namespace AweCsome.Buffer
 
         [JsonConverter(typeof(StringEnumConverter))]
         public Actions Action { get; set; }
-        public object[] Parameters { get; set; }
+        public Dictionary<string,object> Parameters { get; set; }
         public int Id { get; set; } 
         public string TableName { get; set; }
         [JsonConverter(typeof(StringEnumConverter))]
@@ -27,7 +27,7 @@ namespace AweCsome.Buffer
 
         public override string ToString()
         {
-            return $"{Id} [Action:{Action}, Table:{TableName}, State: {State}, ItemId:{ItemId}, Created: {Created}, parametercount: {Parameters?.Length}]";
+            return $"{Id} [Action:{Action}, Table:{TableName}, State: {State}, ItemId:{ItemId}, Created: {Created}, parametercount: {Parameters?.Count}]";
         }
     }
 }

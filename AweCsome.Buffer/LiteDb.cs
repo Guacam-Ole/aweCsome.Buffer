@@ -1,4 +1,9 @@
-﻿using System;
+﻿using AweCsome.Buffer.Interfaces;
+using AweCsome.Entities;
+using AweCsome.Interfaces;
+using LiteDB;
+using log4net;
+using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
@@ -6,19 +11,13 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Web.Hosting;
-using AweCsome.Buffer.Interfaces;
-using AweCsome.Entities;
-using AweCsome.Interfaces;
-using LiteDB;
-using log4net;
 
 namespace AweCsome.Buffer
 {
-    public class LiteDb:ILiteDb
+    public class LiteDb : ILiteDb
     {
         private readonly ILog _log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
-        private Random random = new Random();
-        private const string RandomChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
+
         private const string PrefixAttachment = "UploadAttachment_";
         private const string PrefixFile = "UploadFile_";
         private enum DbModes { Memory, File, Undefined };
@@ -44,7 +43,7 @@ namespace AweCsome.Buffer
         {
             BsonMapper.Global.RegisterType<KeyValuePair<int, string>>(
                 serialize: (pair) => $"{pair.Key}[-]{pair.Value}",
-                deserialize: (bson) => new KeyValuePair<int, string>(int.Parse(bson.AsString.Split(new string[] { "[-]" },StringSplitOptions.None)[0]), bson.AsString.Split(new string[] { "[-]" }, StringSplitOptions.None)[1])
+                deserialize: (bson) => new KeyValuePair<int, string>(int.Parse(bson.AsString.Split(new string[] { "[-]" }, StringSplitOptions.None)[0]), bson.AsString.Split(new string[] { "[-]" }, StringSplitOptions.None)[1])
                 );
         }
 
@@ -55,20 +54,20 @@ namespace AweCsome.Buffer
 
         private string CleanUpLiteDbId(string dirtyName)
         {
-            return dirtyName.Replace("/", "").Replace("\\", "").Replace("-", "_").Replace(" ","");
+            return dirtyName.Replace("/", "").Replace("\\", "").Replace("-", "_").Replace(" ", "");
         }
 
         private string GetStringIdFromFilename(BufferFileMeta meta, bool pathOnly = false)
         {
-            string stringId = $"{meta.AttachmentType}_{meta.Listname}_{meta.Folder}_{meta.ParentId}_";
-            if (!pathOnly) stringId += $"{Rand()}_{meta.Filename}";
+            string stringId = $"{meta.AttachmentType}_{meta.Listname}_{meta.Folder}";
+            if (!pathOnly) stringId += $"_{meta.ParentId}_{meta.Filename}";
             return CleanUpLiteDbId(stringId);
         }
 
-        private string Rand(int length = 8)
-        {
-            return new string(Enumerable.Repeat(RandomChars, length).Select(s => s[random.Next(s.Length)]).ToArray());
-        }
+        //private string Rand(int length = 8)
+        //{
+        //    return new string(Enumerable.Repeat(RandomChars, length).Select(s => s[random.Next(s.Length)]).ToArray());
+        //}
 
         protected void DropCollection<T>(string name)
         {
@@ -78,14 +77,14 @@ namespace AweCsome.Buffer
 
         protected LiteDB.LiteCollection<T> GetCollection<T>(string name)
         {
-            
+
             name = name ?? typeof(T).Name;
             return _database.GetCollection<T>(name);
         }
 
         public LiteCollection<BsonDocument> GetCollection(string name)
         {
-            return  _database.GetCollection(name);
+            return _database.GetCollection(name);
         }
 
         private LiteDB.LiteStorage GetStorage()
@@ -95,10 +94,27 @@ namespace AweCsome.Buffer
 
         public void RemoveAttachment(BufferFileMeta meta)
         {
-            var existingFile = _database.FileStorage.Find(GetStringIdFromFilename(meta)).FirstOrDefault();
+            var existingFile = _database.FileStorage.Find(GetStringIdFromFilename(meta,true)).FirstOrDefault(q=>q.Filename==meta.Filename);
             if (existingFile == null) return;
             _database.FileStorage.Delete(existingFile.Id);
         }
+
+        //public void RenameFile(BufferFileMeta oldMeta, BufferFileMeta newMeta)
+        //{
+        //    string oldId = GetStringIdFromFilename(oldMeta);
+        //    string newId = GetStringIdFromFilename(newMeta);
+        //    var existingFile = _database.FileStorage.Find(GetStringIdFromFilename(oldMeta)).FirstOrDefault();
+        //    if (existingFile == null)
+        //    {
+        //        _log.Warn($"cannot rename file with id '{oldId}'. Cannot be found");
+        //        return;
+        //    }
+        //    MemoryStream newStream = new MemoryStream();
+        //    existingFile.CopyTo(newStream);
+        //    _database.FileStorage.Upload(newId, newMeta.Filename, newStream);
+        //    _database.FileStorage.Delete(oldId);
+        //    _log.Debug($"Renamed file with id '{oldId}' to '{newId}'");
+        //}
 
         public List<string> GetAttachmentNamesFromItem<T>(int id)
         {
@@ -108,7 +124,7 @@ namespace AweCsome.Buffer
             if (matches == null) return null;
             foreach (var file in files)
             {
-                matches.Add(file.Filename);
+                if (GetMetadataFromAttachment(file.Metadata).ParentId == id) matches.Add(file.Filename);
             }
             return matches;
         }
@@ -135,6 +151,7 @@ namespace AweCsome.Buffer
             if (matches == null) return null;
             foreach (var file in files)
             {
+                if (GetMetadataFromAttachment(file.Metadata).ParentId != id) continue;
                 MemoryStream fileStream = new MemoryStream((int)file.Length);
                 file.CopyTo(fileStream);
                 matches.Add(file.Filename, fileStream);
@@ -144,8 +161,8 @@ namespace AweCsome.Buffer
 
         public MemoryStream GetAttachmentStreamById(string id, out string filename, out BufferFileMeta meta)
         {
-            
-            var fileInfo=_database.FileStorage.FindById(id);
+
+            var fileInfo = _database.FileStorage.FindById(id);
             filename = fileInfo.Filename;
             MemoryStream fileStream = new MemoryStream((int)fileInfo.Length);
             fileInfo.CopyTo(fileStream);
@@ -192,12 +209,12 @@ namespace AweCsome.Buffer
         {
             var meta = new BufferFileMeta
             {
-                AttachmentType = (BufferFileMeta.AttachmentTypes) Enum.Parse(typeof(BufferFileMeta.AttachmentTypes), doc[nameof(BufferFileMeta.AttachmentType)]),
-                Filename=doc[nameof(BufferFileMeta.Filename)],
-                Folder=doc[nameof(BufferFileMeta.Folder)],
-                Listname=doc[nameof(BufferFileMeta.Listname)],
-                ParentId=doc[nameof(BufferFileMeta.ParentId)],
-                AdditionalInformation=doc[nameof(BufferFileMeta.AdditionalInformation)]
+                AttachmentType = (BufferFileMeta.AttachmentTypes)Enum.Parse(typeof(BufferFileMeta.AttachmentTypes), doc[nameof(BufferFileMeta.AttachmentType)]),
+                Filename = doc[nameof(BufferFileMeta.Filename)],
+                Folder = doc[nameof(BufferFileMeta.Folder)],
+                Listname = doc[nameof(BufferFileMeta.Listname)],
+                ParentId = doc[nameof(BufferFileMeta.ParentId)],
+                AdditionalInformation = doc[nameof(BufferFileMeta.AdditionalInformation)]
             };
 
             meta.SetId(doc[nameof(BufferFileMeta.Id)]);
@@ -231,7 +248,7 @@ namespace AweCsome.Buffer
             minId--;
             _helpers.SetId<T>(item, minId);
 
-           return  collection.Insert(item);
+            return collection.Insert(item);
         }
 
         public LiteCollection<T> GetCollection<T>()
@@ -246,11 +263,11 @@ namespace AweCsome.Buffer
 
         private string CreateConnectionString(string databasename)
         {
-            string localPath = HostingEnvironment.MapPath( databasename);
+            string localPath = HostingEnvironment.MapPath(databasename);
             if (localPath == null)
             {
                 // No Web environment
-                localPath = System.Environment.CurrentDirectory+ "\\"+ databasename;
+                localPath = System.Environment.CurrentDirectory + "\\" + databasename;
             }
             return "Filename=" + localPath;
         }
@@ -287,10 +304,10 @@ namespace AweCsome.Buffer
 
         public object CallGenericMethodByName(object baseObject, MethodInfo method, Type baseType, string fullyQualifiedName, object[] parameters)
         {
-            return CallGenericMethod(baseObject, method,  baseType.Assembly.GetType(fullyQualifiedName, false, true), parameters);
+            return CallGenericMethod(baseObject, method, baseType.Assembly.GetType(fullyQualifiedName, false, true), parameters);
         }
 
-        public object CallGenericMethod(object baseObject, MethodInfo method,  Type entityType, object[] parameters)
+        public object CallGenericMethod(object baseObject, MethodInfo method, Type entityType, object[] parameters)
         {
             MethodInfo genericMethod = method.MakeGenericMethod(entityType);
             var paams = genericMethod.GetParameters();
@@ -320,7 +337,7 @@ namespace AweCsome.Buffer
 
             DropCollection<T>(null);
             if (spItems.Count == 0) return;
-            if (typeof(T).GetProperty("Id")==null)
+            if (typeof(T).GetProperty("Id") == null)
             {
                 _log.Warn($"Collection {typeof(T).Name} has no ID-Field. Cannot insert");
                 return;

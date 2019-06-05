@@ -46,7 +46,7 @@ namespace AweCsome.Buffer
                 Action = Command.Actions.AttachFileToItem,
                 ItemId = id,
                 TableName = _helpers.GetListName<T>(),
-                Parameters = new object[] { liteAttachmentId }
+                Parameters = new Dictionary<string, object> { { "AttachmentId", liteAttachmentId } }
             });
         }
 
@@ -65,7 +65,7 @@ namespace AweCsome.Buffer
             {
                 Action = Command.Actions.AttachFileToLibrary,
                 TableName = _helpers.GetListName<T>(),
-                Parameters = new object[] { liteAttachmentId, folder }
+                Parameters = new Dictionary<string, object> { { "AttachmentId", liteAttachmentId }, { "Folder", folder } }
             });
 
             return $"{folder}/{filename}";
@@ -139,7 +139,7 @@ namespace AweCsome.Buffer
                 Action = Command.Actions.RemoveAttachmentFromItem,
                 ItemId = id,
                 TableName = _helpers.GetListName<T>(),
-                Parameters = new object[] { filename }
+                Parameters = new Dictionary<string, object> { { "Filename", filename } }
             });
         }
 
@@ -157,7 +157,7 @@ namespace AweCsome.Buffer
                 Queue.AddCommand<object>(new Command
                 {
                     Action = Command.Actions.RemoveFileFromLibrary,
-                    Parameters = new object[] { filename, path },
+                    Parameters = new Dictionary<string, object> { { "Filename", filename }, { "Folder", path } },
                     TableName = _helpers.GetListName<T>()
                 });
             }

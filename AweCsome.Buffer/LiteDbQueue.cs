@@ -67,6 +67,12 @@ namespace AweCsome.Buffer
             return db.GetAttachmentStreamById(id, out filename, out meta);
         }
 
+        public void DeleteAttachmentFromDbWithoutSyncing(BufferFileMeta meta)
+        {
+            var db = new LiteDb(_helpers, _aweCsomeTable, _databaseName);
+            db.RemoveAttachment(meta);
+        }
+
         public void UpdateId(Type baseType, string fullyQualifiedName, int oldId, int newId)
         {
             var db = new LiteDb(_helpers, _aweCsomeTable, _databaseName);
@@ -206,7 +212,7 @@ namespace AweCsome.Buffer
                 Delete(oldEntry);
             }
 
-            var execution = new QueueCommandExecution(this,   _aweCsomeTable, baseType);
+            var execution = new QueueCommandExecution(this, _aweCsomeTable, baseType);
 
 
             var queueCount = Read().Where(q => q.State == Command.States.Pending).Count();
@@ -214,7 +220,7 @@ namespace AweCsome.Buffer
             _log.Info($"Working with queue ({queueCount} pending commands");
             Command command;
             int realCount = 0;
-            while ((command = Read().Where(q => q.State == Command.States.Pending).OrderBy(q => q.Id).ToList().FirstOrDefault())!=null)
+            while ((command = Read().Where(q => q.State == Command.States.Pending).OrderBy(q => q.Id).ToList().FirstOrDefault()) != null)
             {
                 realCount++;
                 _log.Debug($"storing command {command}");
