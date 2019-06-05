@@ -5,6 +5,7 @@ using LiteDB;
 using log4net;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Configuration;
 using System.IO;
 using System.Linq;
@@ -64,10 +65,7 @@ namespace AweCsome.Buffer
             return CleanUpLiteDbId(stringId);
         }
 
-        //private string Rand(int length = 8)
-        //{
-        //    return new string(Enumerable.Repeat(RandomChars, length).Select(s => s[random.Next(s.Length)]).ToArray());
-        //}
+    
 
         protected void DropCollection<T>(string name)
         {
@@ -99,22 +97,20 @@ namespace AweCsome.Buffer
             _database.FileStorage.Delete(existingFile.Id);
         }
 
-        //public void RenameFile(BufferFileMeta oldMeta, BufferFileMeta newMeta)
-        //{
-        //    string oldId = GetStringIdFromFilename(oldMeta);
-        //    string newId = GetStringIdFromFilename(newMeta);
-        //    var existingFile = _database.FileStorage.Find(GetStringIdFromFilename(oldMeta)).FirstOrDefault();
-        //    if (existingFile == null)
-        //    {
-        //        _log.Warn($"cannot rename file with id '{oldId}'. Cannot be found");
-        //        return;
-        //    }
-        //    MemoryStream newStream = new MemoryStream();
-        //    existingFile.CopyTo(newStream);
-        //    _database.FileStorage.Upload(newId, newMeta.Filename, newStream);
-        //    _database.FileStorage.Delete(oldId);
-        //    _log.Debug($"Renamed file with id '{oldId}' to '{newId}'");
-        //}
+        public void UpdateFileMeta(BufferFileMeta oldMeta, BufferFileMeta newMeta )
+        {
+            string id = GetStringIdFromFilename(oldMeta);
+            var existingFile = _database.FileStorage.Find(id).FirstOrDefault(q => GetMetadataFromAttachment(q.Metadata).ParentId == oldMeta.ParentId);
+            if (existingFile==null)
+            {
+                _log.Warn($"Cannot change meta for {id}. File cannot be found");
+                return;
+            }
+            existingFile.Metadata = GetMetadataFromAttachment(newMeta);
+        }
+
+
+
 
         public List<string> GetAttachmentNamesFromItem<T>(int id)
         {
@@ -143,6 +139,11 @@ namespace AweCsome.Buffer
             return matches;
         }
 
+        public void UpdateMetadata(string id, BsonDocument metadata)
+        {
+            _database.FileStorage.SetMetadata(id, metadata);
+        }
+
         public Dictionary<string, Stream> GetAttachmentsFromItem<T>(int id)
         {
             var matches = new Dictionary<string, Stream>();
@@ -161,13 +162,17 @@ namespace AweCsome.Buffer
 
         public MemoryStream GetAttachmentStreamById(string id, out string filename, out BufferFileMeta meta)
         {
-
             var fileInfo = _database.FileStorage.FindById(id);
             filename = fileInfo.Filename;
             MemoryStream fileStream = new MemoryStream((int)fileInfo.Length);
             fileInfo.CopyTo(fileStream);
             meta = GetMetadataFromAttachment(fileInfo.Metadata);
             return fileStream;
+        }
+
+        public IEnumerable<LiteFileInfo> GetAllFiles()
+        {
+            return _database.FileStorage.FindAll();
         }
 
         public List<AweCsomeLibraryFile> GetFilesFromDocLib<T>(string folder)
@@ -191,33 +196,35 @@ namespace AweCsome.Buffer
             return matches;
         }
 
-        private LiteDB.BsonDocument GetMetadataFromAttachment(BufferFileMeta meta)
+        public BsonDocument GetMetadataFromAttachment(BufferFileMeta meta)
         {
-            var doc = new LiteDB.BsonDocument();
-            doc[nameof(BufferFileMeta.AttachmentType)] = meta.AttachmentType.ToString();
-            doc[nameof(BufferFileMeta.Filename)] = meta.Filename;
-            doc[nameof(BufferFileMeta.Folder)] = meta.Folder;
-            doc[nameof(BufferFileMeta.Id)] = meta.Id;
-            doc[nameof(BufferFileMeta.Listname)] = meta.Listname;
-            doc[nameof(BufferFileMeta.ParentId)] = meta.ParentId;
-            doc[nameof(BufferFileMeta.AdditionalInformation)] = meta.AdditionalInformation; // meta.AdditionalInformation; // TODO; Serialize AdditionalInformation property
-
+            var doc = new BsonDocument();
+            foreach (var property in typeof(BufferFileMeta).GetProperties())
+            {
+                //  doc.Set(property.Name,  property.GetValue(meta));
+                if (property.CanRead) doc[property.Name] = property.GetValue(meta)?.ToString();
+            }
             return doc;
         }
 
-        private BufferFileMeta GetMetadataFromAttachment(LiteDB.BsonDocument doc)
+        public BufferFileMeta GetMetadataFromAttachment(LiteDB.BsonDocument doc)
         {
-            var meta = new BufferFileMeta
+            var meta = new BufferFileMeta();
+            foreach (var property in typeof(BufferFileMeta).GetProperties())
             {
-                AttachmentType = (BufferFileMeta.AttachmentTypes)Enum.Parse(typeof(BufferFileMeta.AttachmentTypes), doc[nameof(BufferFileMeta.AttachmentType)]),
-                Filename = doc[nameof(BufferFileMeta.Filename)],
-                Folder = doc[nameof(BufferFileMeta.Folder)],
-                Listname = doc[nameof(BufferFileMeta.Listname)],
-                ParentId = doc[nameof(BufferFileMeta.ParentId)],
-                AdditionalInformation = doc[nameof(BufferFileMeta.AdditionalInformation)]
-            };
+                if (property.CanWrite && doc.ContainsKey(property.Name)) {
+                    var converter = TypeDescriptor.GetConverter(property.PropertyType);
+                    property.SetValue(meta, converter.ConvertFromString(doc[property.Name]));
+                } 
+            }
+                //AttachmentType = (BufferFileMeta.AttachmentTypes)Enum.Parse(typeof(BufferFileMeta.AttachmentTypes), doc[nameof(BufferFileMeta.AttachmentType)]),
+                //Filename = doc[nameof(BufferFileMeta.Filename)],
+                //Folder = doc[nameof(BufferFileMeta.Folder)],
+                //Listname = doc[nameof(BufferFileMeta.Listname)],
+                //ParentId = doc[nameof(BufferFileMeta.ParentId)],
+                //AdditionalInformation = doc[nameof(BufferFileMeta.AdditionalInformation)]
 
-            meta.SetId(doc[nameof(BufferFileMeta.Id)]);
+            meta.SetId(int.Parse(doc[nameof(BufferFileMeta.Id)].AsString));
             return meta;
         }
 
@@ -228,7 +235,7 @@ namespace AweCsome.Buffer
             var existingFiles = _database.FileStorage.Find(prefix);
             if (existingFiles.Count() > 0)
             {
-                calculatedIndex = existingFiles.Min(q => (int?)q.Metadata["Id"]) ?? 0;
+                calculatedIndex = existingFiles.Min(q => int.Parse(q.Metadata["Id"].AsString ?? "0"));
                 if (calculatedIndex > 0) calculatedIndex = 0;
             }
             calculatedIndex--;

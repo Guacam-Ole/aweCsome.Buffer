@@ -57,6 +57,7 @@ namespace AweCsome.Buffer
                 AttachmentType = BufferFileMeta.AttachmentTypes.DocLib,
                 Filename = filename,
                 Listname = _helpers.GetListName<T>(),
+                FullyQualifiedName=typeof(T).FullName,
                 Folder = folder,
                 AdditionalInformation = JsonConvert.SerializeObject(entity, Formatting.Indented)
             }, filestream);
@@ -151,6 +152,7 @@ namespace AweCsome.Buffer
                 {
                     Listname = _helpers.GetListName<T>(),
                     AttachmentType = BufferFileMeta.AttachmentTypes.DocLib,
+                    FullyQualifiedName=typeof(T).FullName,
                     Filename = filename,
                     Folder = path
                 });

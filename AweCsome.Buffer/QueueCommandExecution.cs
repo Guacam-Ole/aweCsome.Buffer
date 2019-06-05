@@ -56,8 +56,10 @@ namespace AweCsome.Buffer
         {
             object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
             var attachmentStream = _queue.GetAttachmentStreamFromDbById((string)command.Parameters["AttachmentId"], out string filename, out BufferFileMeta meta);
+            attachmentStream.Seek(0, SeekOrigin.Begin);
+ 
 
-            MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.AttachFileToItem<object>(command.ItemId.Value, filename, attachmentStream));
+            MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.AttachFileToItem<object>(command.ItemId.Value, filename, new MemoryStream()));
             _queue.CallGenericMethodByName(_aweCsomeTable, method, _baseType, command.FullyQualifiedName, new object[] { command.ItemId.Value, filename, attachmentStream });
             _queue.DeleteAttachmentFromDbWithoutSyncing(meta);
         }

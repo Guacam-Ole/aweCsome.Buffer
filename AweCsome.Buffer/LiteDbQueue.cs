@@ -3,6 +3,7 @@ using AweCsome.Buffer.Attributes;
 using AweCsome.Buffer.Interfaces;
 using AweCsome.Interfaces;
 using log4net;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -79,6 +80,12 @@ namespace AweCsome.Buffer
             MethodInfo method = GetMethod<LiteDb>(q => q.GetCollection<object>());
             dynamic collection = CallGenericMethodByName(db, method, baseType, fullyQualifiedName, null);
             var entity = collection.FindById(oldId);
+
+            if (entity==null)
+            {
+                _log.Error($"Cannot find {fullyQualifiedName} from id {oldId} to change to {newId}");
+                throw new KeyNotFoundException();
+            }
             entity.Id = newId;
 
             // Id CANNOT be updated in LiteDB. We have to delete and recreate instead:
@@ -86,6 +93,7 @@ namespace AweCsome.Buffer
             collection.Insert(entity);
 
             UpdateLookups(baseType, GetListNameFromFullyQualifiedName(baseType, fullyQualifiedName), oldId, newId);
+            UpdateFileLookups(baseType, GetListNameFromFullyQualifiedName(baseType, fullyQualifiedName), oldId, newId);
             UpdateQueueIds(fullyQualifiedName, oldId, newId);
         }
 
@@ -100,9 +108,122 @@ namespace AweCsome.Buffer
             }
         }
 
+        private void UpdateFileLookups(Type baseType, string changedListname, int oldId, int newId)
+        {
+            var db = new LiteDb(_helpers, _aweCsomeTable, _databaseName);
+            foreach (var file in db.GetAllFiles())
+            {
+                var meta = db.GetMetadataFromAttachment(file.Metadata);
+                if (meta.AttachmentType == BufferFileMeta.AttachmentTypes.Attachment)
+                {
+                    if (meta.Listname == changedListname && meta.ParentId == oldId)
+                    {
+                        meta.ParentId = newId;
+                        db.UpdateMetadata(file.Id, db.GetMetadataFromAttachment(meta));
+                        
+                    }
+                }
+                else
+                {
+                    if (meta.AdditionalInformation != null)
+                    {
+                        Type targetType = baseType.Assembly.GetTypes().FirstOrDefault(q => q.FullName == meta.FullyQualifiedName);
+                        if (targetType == null) continue;
+                        var entity = JsonConvert.DeserializeObject(meta.AdditionalInformation, targetType);
+                        if (FindLookupProperties(targetType, changedListname, out List<PropertyInfo> lookupProperties, out List<PropertyInfo> virtualStaticProperties, out List<PropertyInfo> virtualDynamicProperties))
+                        {
+                            bool elementChanged = false;
+                            foreach (var lookupProperty in lookupProperties)
+                            {
+                                if ((int?)lookupProperty.GetValue(entity) == oldId)
+                                {
+                                    lookupProperty.SetValue(entity, newId);
+                                    elementChanged = true;
+                                }
+                            }
+                            foreach (var virtualStaticPropery in virtualStaticProperties)
+                            {
+                                if ((int?)virtualStaticPropery.GetValue(entity) == oldId)
+                                {
+                                    virtualStaticPropery.SetValue(entity, newId);
+                                    elementChanged = true;
+                                }
+                            }
+                            foreach (var virtualDynamicProperty in virtualDynamicProperties)
+                            {
+                                var attribute = virtualDynamicProperty.GetCustomAttribute<VirtualLookupAttribute>();
+                                var targetList = (string)targetType.GetProperty(attribute.DynamicTargetProperty).GetValue(entity);
+                                if (targetList == changedListname)
+                                {
+                                    if ((int?)virtualDynamicProperty.GetValue(entity) == oldId)
+                                    {
+                                        virtualDynamicProperty.SetValue(entity, newId);
+                                        elementChanged = true;
+                                    }
+                                }
+                            }
+                            if (elementChanged)
+                            {
+                                meta.AdditionalInformation = JsonConvert.SerializeObject(entity, Formatting.Indented);
+                                db.UpdateMetadata(file.Id, db.GetMetadataFromAttachment(meta));
+                                //file.Metadata = db.GetMetadataFromAttachment(meta);
+                            }
+                        }
+                       
+                    }
+                }
+            }
+        }
+
+        private bool FindLookupProperties(Type subType, string changedListname, out List<PropertyInfo> lookupProperties, out List<PropertyInfo> virtualStaticProperties, out List<PropertyInfo> virtualDynamicProperties)
+        {
+            PropertyInfo dynamicTargetProperty = null;
+            bool modifyId = false;
+            lookupProperties = new List<PropertyInfo>();
+            virtualStaticProperties = new List<PropertyInfo>();
+            virtualDynamicProperties = new List<PropertyInfo>();
+
+            foreach (var property in subType.GetProperties())
+            {
+                bool propertyHasLookups = false;
+                var virtualLookupAttribute = property.GetCustomAttribute<VirtualLookupAttribute>();
+                var lookupAttribute = property.GetCustomAttribute<LookupAttribute>();
+                if (virtualLookupAttribute != null || lookupAttribute != null) propertyHasLookups = true;
+
+                if (propertyHasLookups)
+                {
+                    if (virtualLookupAttribute != null)
+                    {
+                        if (virtualLookupAttribute.StaticTarget != null)
+                        {
+                            if (virtualLookupAttribute.StaticTarget != changedListname) continue;
+
+                            modifyId = true;
+                            virtualStaticProperties.Add(property);
+                        }
+                        else
+                        {
+                            if (virtualLookupAttribute.DynamicTargetProperty == null) continue;
+                            dynamicTargetProperty = subType.GetProperty(virtualLookupAttribute.DynamicTargetProperty);
+                            if (dynamicTargetProperty == null) continue;
+                            modifyId = true;    // MIGHT be
+                            virtualDynamicProperties.Add(property);
+                        }
+                    }
+                    else if (lookupAttribute != null)
+                    {
+                        if (lookupAttribute.List != changedListname) continue;
+                        lookupProperties.Add(property);
+                        modifyId = true;
+                    }
+                }
+                if (modifyId) break;
+            }
+            return modifyId;
+        }
+
         private void UpdateLookups(Type baseType, string changedListname, int oldId, int newId)
         {
-            // TODO: Update Lookups after changing Id
             var db = new LiteDb(_helpers, _aweCsomeTable, _databaseName);
             List<string> collectionNames = db.GetCollectionNames().ToList();
             var subTypes = baseType.Assembly.GetTypes();
@@ -110,48 +231,7 @@ namespace AweCsome.Buffer
             {
                 if (!collectionNames.Contains(subType.Name)) continue;
 
-                PropertyInfo dynamicTargetProperty = null;
-                bool modifyId = false;
-                var lookupProperties = new List<PropertyInfo>();
-                var virtualStaticProperties = new List<PropertyInfo>();
-                var virtualDynamicProperties = new List<PropertyInfo>();
-
-                foreach (var property in subType.GetProperties())
-                {
-                    bool propertyHasLookups = false;
-                    var virtualLookupAttribute = property.GetCustomAttribute<VirtualLookupAttribute>();
-                    var lookupAttribute = property.GetCustomAttribute<LookupAttribute>();
-                    if (virtualLookupAttribute != null || lookupAttribute != null) propertyHasLookups = true;
-
-                    if (propertyHasLookups)
-                    {
-                        if (virtualLookupAttribute != null)
-                        {
-                            if (virtualLookupAttribute.StaticTarget != null)
-                            {
-                                if (virtualLookupAttribute.StaticTarget != changedListname) continue;
-
-                                modifyId = true;
-                                virtualStaticProperties.Add(property);
-                            }
-                            else
-                            {
-                                if (virtualLookupAttribute.DynamicTargetProperty == null) continue;
-                                dynamicTargetProperty = subType.GetProperty(virtualLookupAttribute.DynamicTargetProperty);
-                                if (dynamicTargetProperty == null) continue;
-                                modifyId = true;    // MIGHT be
-                                virtualDynamicProperties.Add(property);
-                            }
-                        }
-                        else if (lookupAttribute != null)
-                        {
-                            if (lookupAttribute.List != changedListname) continue;
-                            lookupProperties.Add(property);
-                            modifyId = true;
-                        }
-                    }
-                    if (modifyId) break;
-                }
+                bool modifyId = FindLookupProperties( subType,  changedListname, out List<PropertyInfo> lookupProperties, out List<PropertyInfo> virtualStaticProperties, out List<PropertyInfo> virtualDynamicProperties);
                 if (modifyId)
                 {
                     var collection = db.GetCollection(subType.Name);
