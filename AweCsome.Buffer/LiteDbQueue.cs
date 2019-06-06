@@ -21,6 +21,14 @@ namespace AweCsome.Buffer
         {
         }
 
+        public void Empty()
+        {
+            lock (_queueLock)
+            {
+                DeleteTable(nameof(Command));
+            }
+        }
+
         public void AddCommand<T>(Command command)
         {
             lock (_queueLock)
@@ -272,9 +280,6 @@ namespace AweCsome.Buffer
                 }
             }
         }
-        
-
-  
 
         public void Sync(Type baseType)
         {

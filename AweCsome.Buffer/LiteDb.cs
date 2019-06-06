@@ -65,8 +65,6 @@ namespace AweCsome.Buffer
             return CleanUpLiteDbId(stringId);
         }
 
-
-
         protected void DropCollection<T>(string name)
         {
             name = name ?? typeof(T).Name;
@@ -85,9 +83,17 @@ namespace AweCsome.Buffer
             return _database.GetCollection(name);
         }
 
-        private LiteDB.LiteStorage GetStorage()
+        private LiteStorage GetStorage()
         {
             return _database.FileStorage;
+        }
+
+        public void EmptyStorage()
+        {
+            foreach (var itemId in GetStorage().FindAll().Select(q=>q.Id).ToList())
+            {
+                GetStorage().Delete(itemId);
+            }
         }
 
         public void RemoveAttachment(BufferFileMeta meta)
@@ -383,7 +389,7 @@ namespace AweCsome.Buffer
         {
             if (!_aweCsomeTable.Exists<T>()) return;
             var spItems = _aweCsomeTable.SelectAllItems<T>();
-            _log.Debug($"Replacing Data in localDB for {typeof(T).Name} ({spItems.Count} items)");
+            _log.Debug($"Replacing Data in LiteDB for {typeof(T).Name} ({spItems.Count} items)");
 
             DropCollection<T>(null);
             if (spItems.Count == 0) return;

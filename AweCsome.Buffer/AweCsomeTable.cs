@@ -26,6 +26,11 @@ namespace AweCsome.Buffer
             Queue = new LiteDbQueue(helpers, baseTable, databasename);
         }
 
+        public void EmptyStorage()
+        {
+            _db.EmptyStorage();
+        }
+
         public string AddFolderToLibrary<T>(string folder)
         {
             return _baseTable.AddFolderToLibrary<T>(folder);   // NOT buffered
@@ -320,8 +325,19 @@ namespace AweCsome.Buffer
                 var peopleAttribute = property.GetCustomAttribute<UserAttribute>();
                 if (property.PropertyType == typeof(KeyValuePair<int, string>)) propertyValue = ((KeyValuePair<int, string>)propertyValue).Key;
                 if (property.PropertyType == typeof(Dictionary<int, string>)) propertyValue = ((Dictionary<int, string>)propertyValue).Keys.ToArray();
-                if (propertyValue.Equals(value)) matches.Add(item);
-
+                if (propertyValue.Equals(value))
+                {
+                    matches.Add(item);
+                    continue;
+                }
+                if (propertyValue is int[] && value is int)
+                {
+                    if (((int[])propertyValue).Contains((int)value))
+                    {
+                        matches.Add(item);
+                        continue;
+                    }
+                }
             }
             return matches;
         }
