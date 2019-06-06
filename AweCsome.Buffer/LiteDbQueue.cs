@@ -272,15 +272,9 @@ namespace AweCsome.Buffer
                 }
             }
         }
+        
 
-        public void GetChangesFromList<T>() where T : new()
-        {
-            return;
-        }
-
-        public void GetAllChanges()
-        {
-        }
+  
 
         public void Sync(Type baseType)
         {
@@ -293,8 +287,6 @@ namespace AweCsome.Buffer
             }
 
             var execution = new QueueCommandExecution(this, _aweCsomeTable, baseType);
-
-
             var queueCount = Read().Where(q => q.State == Command.States.Pending).Count();
 
             _log.Info($"Working with queue ({queueCount} pending commands");
@@ -317,7 +309,6 @@ namespace AweCsome.Buffer
                     _log.Error($"Cannot find method for action '{commandAction}'", ex);
                     break;
                 }
-
             }
             _log.Debug($"{realCount} of {queueCount} items synced (can be higher if new items have been added while in loop)");
         }

@@ -65,7 +65,7 @@ namespace AweCsome.Buffer
             return CleanUpLiteDbId(stringId);
         }
 
-    
+
 
         protected void DropCollection<T>(string name)
         {
@@ -92,16 +92,16 @@ namespace AweCsome.Buffer
 
         public void RemoveAttachment(BufferFileMeta meta)
         {
-            var existingFile = _database.FileStorage.Find(GetStringIdFromFilename(meta,true)).FirstOrDefault(q=>q.Filename==meta.Filename);
+            var existingFile = _database.FileStorage.Find(GetStringIdFromFilename(meta, true)).FirstOrDefault(q => q.Filename == meta.Filename);
             if (existingFile == null) return;
             _database.FileStorage.Delete(existingFile.Id);
         }
 
-        public void UpdateFileMeta(BufferFileMeta oldMeta, BufferFileMeta newMeta )
+        public void UpdateFileMeta(BufferFileMeta oldMeta, BufferFileMeta newMeta)
         {
             string id = GetStringIdFromFilename(oldMeta);
             var existingFile = _database.FileStorage.Find(id).FirstOrDefault(q => GetMetadataFromAttachment(q.Metadata).ParentId == oldMeta.ParentId);
-            if (existingFile==null)
+            if (existingFile == null)
             {
                 _log.Warn($"Cannot change meta for {id}. File cannot be found");
                 return;
@@ -212,17 +212,18 @@ namespace AweCsome.Buffer
             var meta = new BufferFileMeta();
             foreach (var property in typeof(BufferFileMeta).GetProperties())
             {
-                if (property.CanWrite && doc.ContainsKey(property.Name)) {
+                if (property.CanWrite && doc.ContainsKey(property.Name))
+                {
                     var converter = TypeDescriptor.GetConverter(property.PropertyType);
                     property.SetValue(meta, converter.ConvertFromString(doc[property.Name]));
-                } 
+                }
             }
-                //AttachmentType = (BufferFileMeta.AttachmentTypes)Enum.Parse(typeof(BufferFileMeta.AttachmentTypes), doc[nameof(BufferFileMeta.AttachmentType)]),
-                //Filename = doc[nameof(BufferFileMeta.Filename)],
-                //Folder = doc[nameof(BufferFileMeta.Folder)],
-                //Listname = doc[nameof(BufferFileMeta.Listname)],
-                //ParentId = doc[nameof(BufferFileMeta.ParentId)],
-                //AdditionalInformation = doc[nameof(BufferFileMeta.AdditionalInformation)]
+            //AttachmentType = (BufferFileMeta.AttachmentTypes)Enum.Parse(typeof(BufferFileMeta.AttachmentTypes), doc[nameof(BufferFileMeta.AttachmentType)]),
+            //Filename = doc[nameof(BufferFileMeta.Filename)],
+            //Folder = doc[nameof(BufferFileMeta.Folder)],
+            //Listname = doc[nameof(BufferFileMeta.Listname)],
+            //ParentId = doc[nameof(BufferFileMeta.ParentId)],
+            //AdditionalInformation = doc[nameof(BufferFileMeta.AdditionalInformation)]
 
             meta.SetId(int.Parse(doc[nameof(BufferFileMeta.Id)].AsString));
             return meta;
@@ -245,17 +246,29 @@ namespace AweCsome.Buffer
             return uploadedFile.Id;
         }
 
+        public void Delete<T>(int id, string listname)
+        {
+            var collection = GetCollection<T>(listname);
+            collection.Delete(id);
+        }
+
         public int Insert<T>(T item, string listname)
         {
-
             var collection = GetCollection<T>(listname);
             collection.EnsureIndex("Id");
             int minId = collection.Min().AsInt32;
             if (minId > 0) minId = 0;
             minId--;
-            _helpers.SetId<T>(item, minId);
+            _helpers.SetId(item, minId);
 
             return collection.Insert(item);
+        }
+
+        public void Update<T>(int id, T item, string listname)
+        {
+            var collection = GetCollection<T>(listname);
+            var oldItem=collection.FindById(id);
+            collection.Update(id, item);
         }
 
         public LiteCollection<T> GetCollection<T>()
@@ -334,6 +347,36 @@ namespace AweCsome.Buffer
         {
             MethodInfo method = GetMethod<LiteDbQueue>(q => q.ReadAllFromList<object>());
             CallGenericMethod(this, method, entityType, null);
+        }
+
+        public void GetChangesFromList<T>(DateTime compareDate) where T : new()
+        {
+            foreach (var modification in _aweCsomeTable.ModifiedItemsSince<T>(compareDate))
+            {
+                switch (modification.Key.ChangeType)
+                {
+                    case AweCsomeListUpdate.ChangeTypes.Add:
+                        Insert(modification.Value, _helpers.GetListName<T>());
+                        break;
+                    case AweCsomeListUpdate.ChangeTypes.Delete:
+                        Delete<T>(modification.Key.Id, _helpers.GetListName<T>());
+                        break;
+                    case AweCsomeListUpdate.ChangeTypes.Update:
+                        Update(modification.Key.Id, modification.Value, _helpers.GetListName<T>());
+                        break;
+                }
+            }
+        }
+
+        public void GetChangesFromAllLists(Type baseType)
+        {
+            DateTime compareDate = DateTime.Now; // TODO: From the settings
+            foreach (var type in baseType.Assembly.GetTypes())
+            {
+                string fullyQualifiedName = type.FullName;
+                MethodInfo method = GetMethod<LiteDbQueue>(q => q.GetChangesFromList<object>(compareDate));
+                CallGenericMethodByName(this, method, baseType, fullyQualifiedName, new object[] { compareDate });
+            }
         }
 
         public void ReadAllFromList<T>() where T : new()

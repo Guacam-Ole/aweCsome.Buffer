@@ -50,6 +50,11 @@ namespace AweCsome.Buffer
             });
         }
 
+        public void GetChangesFromAllLists(Type baseType)
+        {
+            _db.GetChangesFromAllLists(baseType);
+        }
+
         public string AttachFileToLibrary<T>(string folder, string filename, Stream filestream, T entity)
         {
             string liteAttachmentId = _db.AddAttachment(new BufferFileMeta
