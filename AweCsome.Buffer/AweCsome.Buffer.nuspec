@@ -18,6 +18,7 @@
 			<dependency id="SharePointPnPCoreOnline" version="3.7" />			
 			<dependency id="log4net" version="2.0" />
 			<dependency id="AweCsome.Interfaces" version="0.9" />
+			<dependency id="LiteDB" version="4.1" />
 		</group>
 	</dependencies>
   </metadata>

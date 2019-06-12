@@ -1,4 +1,5 @@
 ﻿using AweCsome.Attributes.FieldAttributes;
+using AweCsome.Buffer.Entities;
 using AweCsome.Buffer.Interfaces;
 using AweCsome.Entities;
 using AweCsome.Interfaces;
@@ -67,7 +68,7 @@ namespace AweCsome.Buffer
                 AttachmentType = BufferFileMeta.AttachmentTypes.DocLib,
                 Filename = filename,
                 Listname = _helpers.GetListName<T>(),
-                FullyQualifiedName=typeof(T).FullName,
+                FullyQualifiedName = typeof(T).FullName,
                 Folder = folder,
                 AdditionalInformation = JsonConvert.SerializeObject(entity, Formatting.Indented)
             }, filestream);
@@ -162,7 +163,7 @@ namespace AweCsome.Buffer
                 {
                     Listname = _helpers.GetListName<T>(),
                     AttachmentType = BufferFileMeta.AttachmentTypes.DocLib,
-                    FullyQualifiedName=typeof(T).FullName,
+                    FullyQualifiedName = typeof(T).FullName,
                     Filename = filename,
                     Folder = path
                 });
@@ -306,7 +307,14 @@ namespace AweCsome.Buffer
 
         public T SelectItemById<T>(int id) where T : new()
         {
-            return _db.GetCollection<T>().FindById(id);
+            var item = _db.GetCollection<T>().FindById(id);
+            if (item == null && id < 0)
+            {
+                var changes = _db.GetCollection<AweCsomeIdChange>();
+                var idChange = changes.FindOne(q => q.OldId == id && q.ListName == typeof(T).Name);
+                if (idChange != null) item = _db.GetCollection<T>().FindById(idChange.NewId);
+            }
+            return item;
         }
 
         public List<T> SelectItemsByFieldValue<T>(string fieldname, object value) where T : new()

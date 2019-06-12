@@ -1,5 +1,6 @@
 ﻿using AweCsome.Attributes.FieldAttributes;
 using AweCsome.Buffer.Attributes;
+using AweCsome.Buffer.Entities;
 using AweCsome.Buffer.Interfaces;
 using AweCsome.Interfaces;
 using log4net;
@@ -99,6 +100,9 @@ namespace AweCsome.Buffer
             // Id CANNOT be updated in LiteDB. We have to delete and recreate instead:
             collection.Delete(oldId);
             collection.Insert(entity);
+
+            var changes = GetCollection<AweCsomeIdChange>();
+            changes.Insert(new AweCsomeIdChange { OldId = oldId, NewId = newId, ListName = fullyQualifiedName });
 
             UpdateLookups(baseType, GetListNameFromFullyQualifiedName(baseType, fullyQualifiedName), oldId, newId);
             UpdateFileLookups(baseType, GetListNameFromFullyQualifiedName(baseType, fullyQualifiedName), oldId, newId);
