@@ -87,6 +87,8 @@ namespace AweCsome.Buffer
         {
             var db = new LiteDb(_helpers, _aweCsomeTable, _databaseName);
             MethodInfo method = GetMethod<LiteDb>(q => q.GetCollection<object>());
+            
+
             dynamic collection = CallGenericMethodByName(db, method, baseType, fullyQualifiedName, null);
             var entity = collection.FindById(oldId);
 
@@ -102,7 +104,8 @@ namespace AweCsome.Buffer
             collection.Insert(entity);
 
             var changes = GetCollection<AweCsomeIdChange>();
-            changes.Insert(new AweCsomeIdChange { OldId = oldId, NewId = newId, ListName = fullyQualifiedName });
+            Type entityType = baseType.Assembly.GetType(fullyQualifiedName);
+            changes.Insert(new AweCsomeIdChange { OldId = oldId, NewId = newId, ListName = entityType.Name });
 
             UpdateLookups(baseType, GetListNameFromFullyQualifiedName(baseType, fullyQualifiedName), oldId, newId);
             UpdateFileLookups(baseType, GetListNameFromFullyQualifiedName(baseType, fullyQualifiedName), oldId, newId);
@@ -298,7 +301,7 @@ namespace AweCsome.Buffer
             var execution = new QueueCommandExecution(this, _aweCsomeTable, baseType);
             var queueCount = Read().Where(q => q.State == Command.States.Pending).Count();
 
-            _log.Info($"Working with queue ({queueCount} pending commands");
+            _log.Info($"Working with queue ({queueCount} pending commands)");
             Command command;
             int realCount = 0;
             while ((command = Read().Where(q => q.State == Command.States.Pending).OrderBy(q => q.Id).ToList().FirstOrDefault()) != null)

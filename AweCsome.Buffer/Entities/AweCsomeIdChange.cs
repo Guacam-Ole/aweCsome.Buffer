@@ -8,6 +8,7 @@ namespace AweCsome.Buffer.Entities
 {
     public class AweCsomeIdChange
     {
+        public Guid Id { get; set; } = Guid.NewGuid();
         public string ListName { get; set; }
         public DateTime Changed { get; set; } = DateTime.Now;
         public int OldId { get; set; }
