@@ -9,7 +9,7 @@
     <licenseUrl>https://github.com/OleAlbers/aweCsome.Buffer/blob/develop/LICENSE.md</licenseUrl>
     <projectUrl>https://github.com/OleAlbers/aweCsome.Buffer</projectUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <description>The AweCsome-Framework is like an Entity Framework for SharePoint Provider Hosted Add-Ins. It uses CSOM to communicate with SharePoint. This is a buffer extension for faster workload.</description>
+    <description>LiteDB-Buffer Extension for AweCsome-Framework on O365.</description>
     <releaseNotes>This is a PreRelease</releaseNotes>
     <copyright>Copyright 2019 Ole Albers</copyright>
     <tags>SharePoint, Entity, Office, AddInModel, AppModel</tags>    

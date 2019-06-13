@@ -71,7 +71,7 @@ namespace AweCsome.Buffer
             _database.DropCollection(name);
         }
 
-        protected LiteDB.LiteCollection<T> GetCollection<T>(string name)
+        protected LiteCollection<T> GetCollection<T>(string name)
         {
 
             name = name ?? typeof(T).Name;
@@ -90,7 +90,7 @@ namespace AweCsome.Buffer
 
         public void EmptyStorage()
         {
-            foreach (var itemId in GetStorage().FindAll().Select(q=>q.Id).ToList())
+            foreach (var itemId in GetStorage().FindAll().Select(q => q.Id).ToList())
             {
                 GetStorage().Delete(itemId);
             }
@@ -114,9 +114,6 @@ namespace AweCsome.Buffer
             }
             existingFile.Metadata = GetMetadataFromAttachment(newMeta);
         }
-
-
-
 
         public List<string> GetAttachmentNamesFromItem<T>(int id)
         {
@@ -224,12 +221,6 @@ namespace AweCsome.Buffer
                     property.SetValue(meta, converter.ConvertFromString(doc[property.Name]));
                 }
             }
-            //AttachmentType = (BufferFileMeta.AttachmentTypes)Enum.Parse(typeof(BufferFileMeta.AttachmentTypes), doc[nameof(BufferFileMeta.AttachmentType)]),
-            //Filename = doc[nameof(BufferFileMeta.Filename)],
-            //Folder = doc[nameof(BufferFileMeta.Folder)],
-            //Listname = doc[nameof(BufferFileMeta.Listname)],
-            //ParentId = doc[nameof(BufferFileMeta.ParentId)],
-            //AdditionalInformation = doc[nameof(BufferFileMeta.AdditionalInformation)]
 
             meta.SetId(int.Parse(doc[nameof(BufferFileMeta.Id)].AsString));
             return meta;
@@ -273,7 +264,7 @@ namespace AweCsome.Buffer
         public void Update<T>(int id, T item, string listname)
         {
             var collection = GetCollection<T>(listname);
-            var oldItem=collection.FindById(id);
+            var oldItem = collection.FindById(id);
             collection.Update(id, item);
         }
 
@@ -289,15 +280,15 @@ namespace AweCsome.Buffer
 
         private string CreateConnectionString(string databasename)
         {
-            string localPath = HostingEnvironment.MapPath(databasename);
-            if (localPath == null)
-            {
-                // No Web environment
-                localPath = System.Environment.CurrentDirectory + "\\" + databasename;
-            }
-            return "Filename=" + localPath;
-        }
+            string path = null;
+            string absolutePath = ConfigurationManager.AppSettings["AweCsomeLiteDbPath"];
+            if (absolutePath != null) path = Path.Combine(absolutePath, databasename);
+            path = path ?? HostingEnvironment.MapPath(databasename);    // No AbsolutePath
+            path = path ?? Environment.CurrentDirectory + "\\" + databasename;// No Web environment
+            _log.Debug($"DB-Path: {path}");
 
+            return "Filename=" + path;
+        }
 
         private LiteDatabase GetDatabase(string databaseName, bool isQueue)
         {
