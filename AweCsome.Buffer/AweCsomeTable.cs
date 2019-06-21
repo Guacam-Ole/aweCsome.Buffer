@@ -104,30 +104,58 @@ namespace AweCsome.Buffer
             return counter;
         }
 
+        private bool ItemMatchesConditions<T>( T item, Dictionary<string,object> conditions, bool isAndCondition)
+        {
+            Dictionary<string, PropertyInfo> properties = CreatePropertiesFromConditions<T>(conditions);
+            int matchesCount = 0;
+            foreach (var property in properties)
+            {
+                if (conditions.ContainsKey(property.Key))
+                {
+                    var propertyValue = property.Value.GetValue(item);
+                    var conditionValue = conditions[property.Key];
+                    if (propertyValue == null)
+                    {
+                        if (conditionValue == null) matchesCount++;
+                        continue;
+                    }
+
+                    if (property.Value.PropertyType == conditionValue.GetType())
+                    {
+                        if (propertyValue.Equals(conditionValue)) matchesCount++;
+                        continue;
+                    }
+                    else if (property.Value.PropertyType == typeof(KeyValuePair<int, string>) && conditionValue.GetType() == typeof(int))
+                    {
+                        var pair = (KeyValuePair<int, string>)propertyValue;
+                        if (pair.Key == (int)conditionValue) matchesCount++;
+                        continue;
+                    }
+                    else if (property.Value.PropertyType == typeof(Dictionary<int, string>) && conditionValue.GetType() == typeof(int))
+                    {
+                        var pair = (Dictionary<int, string>)propertyValue;
+                        if (pair.Keys.Contains((int)conditionValue)) matchesCount++;
+                        continue;
+                    }
+                }
+            }
+            return (matchesCount == properties.Count || matchesCount > 0 && !isAndCondition);
+        }
+
         public int CountItemsByMultipleFieldValues<T>(Dictionary<string, object> conditions, bool isAndCondition = true)
         {
             int counter = 0;
             var collection = _db.GetCollection<T>();
-            var properties = new Dictionary<string, PropertyInfo>();
 
             if (collection.Count() == 0) return 0;
             var allItems = collection.FindAll();
-            foreach (var condition in conditions)
-            {
-                var property = typeof(T).GetProperty(condition.Key);
-                if (property == null) throw new MissingFieldException($"Field '{condition.Key}' cannot be found");
-                if (!property.CanRead) throw new FieldAccessException($"Field '{condition.Key}' cannot be queried");
-                properties.Add(condition.Key, property);
-            }
+      
+
+            
 
             foreach (var item in allItems)
             {
-                int matchesCount = 0;
-                foreach (var property in properties)
-                {
-                    if (property.Value.GetValue(item) == conditions[property.Key]) matchesCount++;
-                }
-                if (matchesCount == properties.Count || matchesCount > 0 && !isAndCondition) counter++;
+                if (ItemMatchesConditions( item, conditions, isAndCondition)) counter++;
             }
             return counter;
         }
@@ -350,14 +378,9 @@ namespace AweCsome.Buffer
             return matches;
         }
 
-        public List<T> SelectItemsByMultipleFieldValues<T>(Dictionary<string, object> conditions, bool isAndCondition = true) where T : new()
+        private Dictionary<string, PropertyInfo> CreatePropertiesFromConditions<T>(Dictionary<string, object> conditions)
         {
-            var matches = new List<T>();
-            var collection = _db.GetCollection<T>();
             var properties = new Dictionary<string, PropertyInfo>();
-
-            if (collection.Count() == 0) return new List<T>();
-            var allItems = collection.FindAll();
             foreach (var condition in conditions)
             {
                 var property = typeof(T).GetProperty(condition.Key);
@@ -365,15 +388,20 @@ namespace AweCsome.Buffer
                 if (!property.CanRead) throw new FieldAccessException($"Field '{condition.Key}' cannot be queried");
                 properties.Add(condition.Key, property);
             }
+            return properties;
+        }
+
+        public List<T> SelectItemsByMultipleFieldValues<T>(Dictionary<string, object> conditions, bool isAndCondition = true) where T : new()
+        {
+            var matches = new List<T>();
+            var collection = _db.GetCollection<T>();
+            if (collection.Count() == 0) return new List<T>();
+            var allItems = collection.FindAll();
+         
 
             foreach (var item in allItems)
             {
-                int matchesCount = 0;
-                foreach (var property in properties)
-                {
-                    if (property.Value.GetValue(item) == conditions[property.Key]) matchesCount++;
-                }
-                if (matchesCount == properties.Count || matchesCount > 0 && !isAndCondition) matches.Add(item);
+                if (ItemMatchesConditions( item, conditions, isAndCondition)) matches.Add(item);
             }
             return matches;
         }

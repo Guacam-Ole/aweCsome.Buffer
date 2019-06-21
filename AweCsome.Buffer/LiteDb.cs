@@ -285,7 +285,7 @@ namespace AweCsome.Buffer
             if (absolutePath != null) path = Path.Combine(Environment.ExpandEnvironmentVariables(absolutePath), databasename);
             path = path ?? HostingEnvironment.MapPath(databasename);    // No AbsolutePath
             path = path ?? Environment.CurrentDirectory + "\\" + databasename;// No Web environment
-            _log.Debug($"DB-Path: {path}");
+         //   _log.Debug($"DB-Path: {path}");
 
             return "Filename=" + path;
         }
