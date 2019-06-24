@@ -271,7 +271,7 @@ namespace AweCsome.Buffer
             PropertyInfo likedByProperty = typeof(T).GetProperty("LikedBy");
 
             if (likedByProperty == null || likesCountProperty == null) throw new Exceptions.FieldMissingException("Like-Fields missing", "LikedBy,LikesCount");
-            var likedBy = (Dictionary<int, string>)likedByProperty.GetValue(item);
+            var likedBy = (Dictionary<int, string>)likedByProperty.GetValue(item) ?? new Dictionary<int, string>();
             var likesCount = (int)likesCountProperty.GetValue(item);
             if (likedBy.ContainsKey(userId))
             {
