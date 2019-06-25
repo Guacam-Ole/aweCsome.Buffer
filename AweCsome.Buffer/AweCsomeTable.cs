@@ -267,12 +267,9 @@ namespace AweCsome.Buffer
         {
             var item = _db.GetCollection<T>().FindById(id);
             if (item == null) throw new Exceptions.ItemNotFoundException();
-            PropertyInfo likesCountProperty = typeof(T).GetProperty("LikesCount");
-            PropertyInfo likedByProperty = typeof(T).GetProperty("LikedBy");
 
-            if (likedByProperty == null || likesCountProperty == null) throw new Exceptions.FieldMissingException("Like-Fields missing", "LikedBy,LikesCount");
-            var likedBy = (Dictionary<int, string>)likedByProperty.GetValue(item) ?? new Dictionary<int, string>();
-            var likesCount = (int)likesCountProperty.GetValue(item);
+            GetLikeData(item, out int likesCount, out Dictionary<int, string> likedBy);
+
             if (likedBy.ContainsKey(userId))
             {
                 // already liked
@@ -281,6 +278,8 @@ namespace AweCsome.Buffer
 
             likedBy.Add(userId, null);
             likesCount++;
+
+            UpdateLikeData(item, likesCount, likedBy);
 
             _db.GetCollection<T>().Update(item);
             Queue.AddCommand<T>(new Command
@@ -423,16 +422,30 @@ namespace AweCsome.Buffer
             return SelectItemsByFieldValue<T>("Title", title);
         }
 
-        public T Unlike<T>(int id, int userId) where T : new()
+        private void GetLikeData<T>(T item, out int likesCount, out Dictionary<int, string> likedBy )
         {
-            var item = _db.GetCollection<T>().FindById(id);
-            if (item == null) throw new Exceptions.ItemNotFoundException();
             PropertyInfo likesCountProperty = typeof(T).GetProperty("LikesCount");
             PropertyInfo likedByProperty = typeof(T).GetProperty("LikedBy");
 
             if (likedByProperty == null || likesCountProperty == null) throw new Exceptions.FieldMissingException("Like-Fields missing", "LikedBy,LikesCount");
-            var likedBy = (Dictionary<int, string>)likedByProperty.GetValue(item);
-            var likesCount = (int)likesCountProperty.GetValue(item);
+            likedBy = (Dictionary<int, string>)likedByProperty.GetValue(item) ?? new Dictionary<int, string>();
+            likesCount = (int)likesCountProperty.GetValue(item);
+        }
+
+        private void UpdateLikeData<T>(T item, int likesCount, Dictionary<int,string> likedBy)
+        {
+            PropertyInfo likesCountProperty = typeof(T).GetProperty("LikesCount");
+            PropertyInfo likedByProperty = typeof(T).GetProperty("LikedBy");
+
+            likesCountProperty.SetValue(item, likesCount);
+            likedByProperty.SetValue(item, likedBy);
+        }
+
+        public T Unlike<T>(int id, int userId) where T : new()
+        {
+            var item = _db.GetCollection<T>().FindById(id);
+            if (item == null) throw new Exceptions.ItemNotFoundException();
+            GetLikeData(item, out int likesCount, out Dictionary<int, string> likedBy);
             if (!likedBy.ContainsKey(userId))
             {
                 // didn't like 
@@ -441,7 +454,7 @@ namespace AweCsome.Buffer
 
             likedBy = likedBy.Where(q => q.Key != userId).ToDictionary(q => q.Key, q => q.Value);
             likesCount--;
-
+            UpdateLikeData(item, likesCount, likedBy);
             _db.GetCollection<T>().Update(item);
             Queue.AddCommand<T>(new Command
             {
