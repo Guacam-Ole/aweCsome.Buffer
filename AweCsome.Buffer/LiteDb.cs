@@ -178,7 +178,7 @@ namespace AweCsome.Buffer
             return _database.FileStorage.FindAll();
         }
 
-        public List<AweCsomeLibraryFile> GetFilesFromDocLib<T>(string folder)
+        public List<AweCsomeLibraryFile> GetFilesFromDocLib<T>(string folder, bool retrieveContent=true) where T:new()
         {
             var matches = new List<AweCsomeLibraryFile>();
 
@@ -187,14 +187,22 @@ namespace AweCsome.Buffer
             var files = _database.FileStorage.Find(prefix);
             foreach (var file in files)
             {
-                MemoryStream fileStream = new MemoryStream((int)file.Length);
-                file.CopyTo(fileStream);
-                matches.Add(new AweCsomeLibraryFile
+                var meta = GetMetadataFromAttachment(file.Metadata);
+
+                var libFile = new AweCsomeLibraryFile
                 {
-                    Stream = fileStream,
                     Filename = file.Filename,
-                    Entity = file.Metadata
-                });
+                    Entity = meta
+                };
+
+                if (retrieveContent)
+                {
+                    MemoryStream fileStream = new MemoryStream((int)file.Length);
+                    file.CopyTo(fileStream);
+                    libFile.Stream = fileStream;
+                }
+
+                matches.Add(libFile);
             }
             return matches;
         }
@@ -223,6 +231,22 @@ namespace AweCsome.Buffer
             }
 
             meta.SetId(int.Parse(doc[nameof(BufferFileMeta.Id)].AsString));
+            return meta;
+        }
+
+        public T GetMetadataFromAttachment<T>(BsonDocument doc) where T:new()
+        {
+            var meta = new T();
+            foreach (var property in typeof(T).GetProperties())
+            {
+                if (property.CanWrite && doc.ContainsKey(property.Name))
+                {
+                    var converter = TypeDescriptor.GetConverter(property.PropertyType);
+                    property.SetValue(meta, converter.ConvertFromString(doc[property.Name]));
+                }
+            }
+
+            //meta.SetId(int.Parse(doc[nameof(BufferFileMeta.Id)].AsString));
             return meta;
         }
 

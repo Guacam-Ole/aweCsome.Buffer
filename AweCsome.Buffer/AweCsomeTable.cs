@@ -297,6 +297,7 @@ namespace AweCsome.Buffer
             return _db.GetCollection<T>().FindAll().ToList();
         }
 
+
         public AweCsomeLibraryFile SelectFileFromLibrary<T>(string foldername, string filename) where T : new()
         {
             var localFiles = _db.GetFilesFromDocLib<T>(foldername);
@@ -325,9 +326,15 @@ namespace AweCsome.Buffer
             return remoteFiles;
         }
 
+        public List<AweCsomeLibraryFile> SelectLocalFilesFromLibrary<T>(string foldername, bool retrieveContent = true) where T : new()
+        {
+            var localFiles = _db.GetFilesFromDocLib<T>(foldername, retrieveContent);
+            return localFiles;
+        }
+
         public List<AweCsomeLibraryFile> SelectFilesFromLibrary<T>(string foldername, bool retrieveContent = true) where T : new()
         {
-            var localFiles = _db.GetFilesFromDocLib<T>(foldername);
+            var localFiles = _db.GetFilesFromDocLib<T>(foldername, retrieveContent);
             var spFiles = _baseTable.SelectFilesFromLibrary<T>(foldername, retrieveContent);
             localFiles.ForEach(q => spFiles.Add(q));
             return spFiles;

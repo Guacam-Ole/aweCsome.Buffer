@@ -14,7 +14,7 @@ namespace AweCsome.Buffer.Interfaces
     public interface ILiteDb
     {
         MemoryStream GetAttachmentStreamById(string id, out string filename, out BufferFileMeta meta);
-        List<AweCsomeLibraryFile> GetFilesFromDocLib<T>(string folder);
+        List<AweCsomeLibraryFile> GetFilesFromDocLib<T>(string folder, bool retrieveData=true) where T : new();
         string AddAttachment(BufferFileMeta meta, Stream fileStream);
         int Insert<T>(T item, string listname);
         LiteDB.LiteCollection<T> GetCollection<T>();
