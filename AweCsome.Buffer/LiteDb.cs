@@ -11,6 +11,7 @@ using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Web.Hosting;
 
 namespace AweCsome.Buffer
@@ -55,7 +56,9 @@ namespace AweCsome.Buffer
 
         private string CleanUpLiteDbId(string dirtyName)
         {
-            return dirtyName.Replace("/", "").Replace("\\", "").Replace("-", "_").Replace(" ", "");
+            dirtyName = dirtyName.Replace("-", "_");
+            Regex rx = new Regex("[^a-zA-Z0-9_]");
+            return rx.Replace(dirtyName, "");
         }
 
         private string GetStringIdFromFilename(BufferFileMeta meta, bool pathOnly = false)
