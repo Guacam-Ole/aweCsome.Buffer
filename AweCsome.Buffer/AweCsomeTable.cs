@@ -252,8 +252,10 @@ namespace AweCsome.Buffer
 
         public int InsertItem<T>(T entity)
         {
+            AutosetCreated(entity);
             string listname = _helpers.GetListName<T>();
             int itemId = _db.Insert(entity, listname);
+            
             Queue.AddCommand<T>(new Command
             {
                 Action = Command.Actions.Insert,
@@ -261,6 +263,23 @@ namespace AweCsome.Buffer
                 TableName = listname
             });
             return itemId;
+        }
+
+        private void AutosetCreated<T>(T item)
+        {
+            AutosetDateTimeField(item, typeof(T).GetProperty(nameof(AweCsomeListItem.Created)));
+        }
+        private void AutosetModified<T>(T item)
+        {
+            AutosetDateTimeField(item, typeof(T).GetProperty(nameof(AweCsomeListItem.Modified)));
+        }
+
+        private void AutosetDateTimeField<T>(T item, PropertyInfo field)
+        {
+            if (field == null) return;
+            var oldValue = (DateTime?)field.GetValue(item);
+            if (oldValue != null && oldValue > new DateTime(1900, 1, 1)) return;
+            field.SetValue(item, DateTime.Now);
         }
 
         public T Like<T>(int id, int userId) where T : new()
@@ -476,6 +495,7 @@ namespace AweCsome.Buffer
 
         public void UpdateItem<T>(T entity)
         {
+            AutosetModified(entity);
             _db.GetCollection<T>().Update(entity);
             Queue.AddCommand<T>(new Command
             {
