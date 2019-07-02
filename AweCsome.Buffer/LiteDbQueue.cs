@@ -103,10 +103,6 @@ namespace AweCsome.Buffer
             collection.Delete(oldId);
             collection.Insert(entity);
 
-            var changes = GetCollection<AweCsomeIdChange>();
-            Type entityType = baseType.Assembly.GetType(fullyQualifiedName);
-            changes.Insert(new AweCsomeIdChange { OldId = oldId, NewId = newId, ListName = entityType.Name });
-
             UpdateLookups(baseType, GetListNameFromFullyQualifiedName(baseType, fullyQualifiedName), oldId, newId);
             UpdateFileLookups(baseType, GetListNameFromFullyQualifiedName(baseType, fullyQualifiedName), oldId, newId);
             UpdateQueueIds(fullyQualifiedName, oldId, newId);

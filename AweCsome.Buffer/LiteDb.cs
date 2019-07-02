@@ -248,8 +248,6 @@ namespace AweCsome.Buffer
                     property.SetValue(meta, converter.ConvertFromString(doc[property.Name]));
                 }
             }
-
-            //meta.SetId(int.Parse(doc[nameof(BufferFileMeta.Id)].AsString));
             return meta;
         }
 
@@ -280,12 +278,20 @@ namespace AweCsome.Buffer
         {
             var collection = GetCollection<T>(listname);
             collection.EnsureIndex("Id");
-            int minId = collection.Min().AsInt32;
+
+            int minId = collection.Min(nameof(Entities.AweCsomeListItemBuffered.BufferId)).AsInt32;
             if (minId > 0) minId = 0;
             minId--;
             _helpers.SetId(item, minId);
+            SetBufferId(item, minId);
 
             return collection.Insert(item);
+        }
+
+        private void SetBufferId<T>(T item, int id) {
+            var property = typeof(T).GetProperty(nameof(Entities.AweCsomeListItemBuffered.BufferId));
+            if (property == null) return;
+            property.SetValue(item, id);
         }
 
         public void Update<T>(int id, T item, string listname)

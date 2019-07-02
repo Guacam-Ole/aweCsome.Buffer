@@ -104,7 +104,7 @@ namespace AweCsome.Buffer
             return counter;
         }
 
-        private bool ItemMatchesConditions<T>( T item, Dictionary<string,object> conditions, bool isAndCondition)
+        private bool ItemMatchesConditions<T>(T item, Dictionary<string, object> conditions, bool isAndCondition)
         {
             Dictionary<string, PropertyInfo> properties = CreatePropertiesFromConditions<T>(conditions);
             int matchesCount = 0;
@@ -149,13 +149,13 @@ namespace AweCsome.Buffer
 
             if (collection.Count() == 0) return 0;
             var allItems = collection.FindAll();
-      
 
-            
+
+
 
             foreach (var item in allItems)
             {
-                if (ItemMatchesConditions( item, conditions, isAndCondition)) counter++;
+                if (ItemMatchesConditions(item, conditions, isAndCondition)) counter++;
             }
             return counter;
         }
@@ -341,12 +341,21 @@ namespace AweCsome.Buffer
 
         public T SelectItemById<T>(int id) where T : new()
         {
-            var item = _db.GetCollection<T>().FindById(id);
+            var collection = _db.GetCollection<T>();
+            var item = collection.FindById(id);
             if (item == null && id < 0)
             {
-                var changes = _db.GetCollection<AweCsomeIdChange>();
-                var idChange = changes.FindOne(q => q.OldId == id && q.ListName == typeof(T).Name);
-                if (idChange != null) item = _db.GetCollection<T>().FindById(idChange.NewId);
+                var oldIdProperty = typeof(T).GetProperty(nameof(AweCsomeListItemBuffered.BufferId));
+                if (oldIdProperty == null) return default(T);
+
+                var allItems = collection.FindAll();
+                foreach (var subItem in allItems)
+                {
+                    if (((int)oldIdProperty.GetValue(subItem)) == id)
+                    {
+                        return subItem;
+                    }
+                }
             }
             return item;
         }
@@ -403,11 +412,11 @@ namespace AweCsome.Buffer
             var collection = _db.GetCollection<T>();
             if (collection.Count() == 0) return new List<T>();
             var allItems = collection.FindAll();
-         
+
 
             foreach (var item in allItems)
             {
-                if (ItemMatchesConditions( item, conditions, isAndCondition)) matches.Add(item);
+                if (ItemMatchesConditions(item, conditions, isAndCondition)) matches.Add(item);
             }
             return matches;
         }
@@ -422,7 +431,7 @@ namespace AweCsome.Buffer
             return SelectItemsByFieldValue<T>("Title", title);
         }
 
-        private void GetLikeData<T>(T item, out int likesCount, out Dictionary<int, string> likedBy )
+        private void GetLikeData<T>(T item, out int likesCount, out Dictionary<int, string> likedBy)
         {
             PropertyInfo likesCountProperty = typeof(T).GetProperty("LikesCount");
             PropertyInfo likedByProperty = typeof(T).GetProperty("LikedBy");
@@ -432,7 +441,7 @@ namespace AweCsome.Buffer
             likesCount = (int)likesCountProperty.GetValue(item);
         }
 
-        private void UpdateLikeData<T>(T item, int likesCount, Dictionary<int,string> likedBy)
+        private void UpdateLikeData<T>(T item, int likesCount, Dictionary<int, string> likedBy)
         {
             PropertyInfo likesCountProperty = typeof(T).GetProperty("LikesCount");
             PropertyInfo likedByProperty = typeof(T).GetProperty("LikedBy");
