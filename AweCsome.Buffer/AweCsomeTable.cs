@@ -213,10 +213,11 @@ namespace AweCsome.Buffer
         public void DeleteItemById<T>(int id)
         {
             _db.GetCollection<T>().Delete(id);
-            Queue.AddCommand<object>(new Command
+            Queue.AddCommand<T>(new Command
             {
                 Action = Command.Actions.Delete,
                 ItemId = id,
+              //  FullyQualifiedName = typeof(T).FullName,
                 TableName = _helpers.GetListName<T>()
             });
         }
@@ -255,7 +256,7 @@ namespace AweCsome.Buffer
             AutosetCreated(entity);
             string listname = _helpers.GetListName<T>();
             int itemId = _db.Insert(entity, listname);
-            
+
             Queue.AddCommand<T>(new Command
             {
                 Action = Command.Actions.Insert,
@@ -303,9 +304,11 @@ namespace AweCsome.Buffer
             _db.GetCollection<T>().Update(item);
             Queue.AddCommand<T>(new Command
             {
-                Action = Command.Actions.Update,
+                Action = Command.Actions.Like,
                 ItemId = id,
-                TableName = _helpers.GetListName<T>()
+                TableName = _helpers.GetListName<T>(),
+                //FullyQualifiedName = typeof(T).FullName,
+                Parameters = new Dictionary<string, object> { { "User", userId } }
             });
             return item;
         }
@@ -486,9 +489,11 @@ namespace AweCsome.Buffer
             _db.GetCollection<T>().Update(item);
             Queue.AddCommand<T>(new Command
             {
-                Action = Command.Actions.Update,
+                Action = Command.Actions.Unlike,
                 ItemId = id,
-                TableName = _helpers.GetListName<T>()
+                TableName = _helpers.GetListName<T>(),
+                //FullyQualifiedName = typeof(T).FullName,
+                Parameters = new Dictionary<string, object> { { "User", userId } }
             });
             return item;
         }

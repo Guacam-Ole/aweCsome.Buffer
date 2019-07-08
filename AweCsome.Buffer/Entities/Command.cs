@@ -7,7 +7,7 @@ namespace AweCsome.Buffer.Entities
 {
     public class Command
     {
-        public enum Actions { DeleteTable, CreateTable, Insert, Update, Delete, Empty, AttachFileToItem, RemoveAttachmentFromItem, AttachFileToLibrary, RemoveFileFromLibrary }
+        public enum Actions { DeleteTable, CreateTable, Insert, Update, Delete, Empty, AttachFileToItem, RemoveAttachmentFromItem, AttachFileToLibrary, RemoveFileFromLibrary, Like, Unlike }
 
         public enum States { Pending, Failed, Succeeded, Delayed, Disabled }
 

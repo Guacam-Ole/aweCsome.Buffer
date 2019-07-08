@@ -3,6 +3,7 @@ using AweCsome.Interfaces;
 using Newtonsoft.Json;
 using System;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 
 namespace AweCsome.Buffer
@@ -40,11 +41,30 @@ namespace AweCsome.Buffer
             _queue.UpdateId(_baseType, command.FullyQualifiedName, command.ItemId.Value, newId);
         }
 
+        public void Delete(Command command)
+        {
+            MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.DeleteItemById<object>(command.ItemId.Value));
+            _queue.CallGenericMethodByName(_aweCsomeTable, method, _baseType, command.FullyQualifiedName, new object[] { command.ItemId.Value });
+        }
+
         public void Update(Command command)
         {
             object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
             MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.UpdateItem(element));
             _queue.CallGenericMethodByName(_aweCsomeTable, method, _baseType, command.FullyQualifiedName, new object[] { element });
+        }
+        public void Like(Command command)
+        {
+            object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
+            MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.Like<object>(0,0));
+            _queue.CallGenericMethodByName(_aweCsomeTable, method, _baseType, command.FullyQualifiedName, new object[] { command.ItemId.Value, (int)command.Parameters.First().Value });
+        }
+
+        public void Unlike(Command  command)
+        {
+            object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
+            MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.Unlike<object>(0, 0));
+            _queue.CallGenericMethodByName(_aweCsomeTable, method, _baseType, command.FullyQualifiedName, new object[] { command.ItemId.Value, (int)command.Parameters.First().Value });
         }
 
         public void Empty(Command command)
