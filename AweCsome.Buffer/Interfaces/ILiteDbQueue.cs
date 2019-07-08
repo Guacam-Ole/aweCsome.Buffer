@@ -1,4 +1,5 @@
-﻿using System;
+﻿using AweCsome.Buffer.Entities;
+using System;
 using System.Collections.Generic;
 
 namespace AweCsome.Buffer.Interfaces

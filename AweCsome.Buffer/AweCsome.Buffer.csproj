@@ -197,7 +197,7 @@
     <Compile Include="AweCsomeTable.cs" />
     <Compile Include="BufferFileMeta.cs" />
     <Compile Include="BufferState.cs" />
-    <Compile Include="Command.cs" />
+    <Compile Include="Entities\Command.cs" />
     <Compile Include="Entities\AweCsomeListItemBuffered.cs" />
     <Compile Include="Entities\BufferedAweCsomeListItem.cs" />
     <Compile Include="Interfaces\IBufferTable.cs" />

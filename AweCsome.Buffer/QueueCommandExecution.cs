@@ -1,4 +1,5 @@
-﻿using AweCsome.Interfaces;
+﻿using AweCsome.Buffer.Entities;
+using AweCsome.Interfaces;
 using Newtonsoft.Json;
 using System;
 using System.IO;
