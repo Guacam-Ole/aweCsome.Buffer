@@ -88,20 +88,22 @@ namespace AweCsome.Buffer
             return _db.GetCollection<T>().Count();
         }
 
-        public int CountItemsByFieldValue<T>(string fieldname, object value)
+        public int CountItemsByFieldValue<T>(string fieldname, object value) where T:new()
         {
-            int counter = 0;
-            var collection = _db.GetCollection<T>();
-            PropertyInfo property = null;
+            return SelectItemsByFieldValue<T>(fieldname, value).Count();
 
-            foreach (var item in collection.FindAll())
-            {
-                property = property ?? typeof(T).GetProperty(fieldname);
-                if (property == null) throw new MissingFieldException($"Field '{fieldname}' cannot be found");
-                if (!property.CanRead) throw new FieldAccessException($"Field '{fieldname}' cannot be queried");
-                if (property.GetValue(item) == value) counter++;
-            }
-            return counter;
+            //int counter = 0;
+            //var collection = _db.GetCollection<T>();
+            //PropertyInfo property = null;
+
+            //foreach (var item in collection.FindAll())
+            //{
+            //    property = property ?? typeof(T).GetProperty(fieldname);
+            //    if (property == null) throw new MissingFieldException($"Field '{fieldname}' cannot be found");
+            //    if (!property.CanRead) throw new FieldAccessException($"Field '{fieldname}' cannot be queried");
+            //    if (property.GetValue(item) == value) counter++;
+            //}
+            //return counter;
         }
 
         private bool ItemMatchesConditions<T>(T item, Dictionary<string, object> conditions, bool isAndCondition)
@@ -394,6 +396,7 @@ namespace AweCsome.Buffer
                 if (property == null) throw new MissingFieldException($"Field '{fieldname}' cannot be found");
                 if (!property.CanRead) throw new FieldAccessException($"Field '{fieldname}' cannot be queried");
                 var propertyValue = property.GetValue(item);
+                if (propertyValue == null) continue;
                 var lookupAttribute = property.GetCustomAttribute<LookupAttribute>();
                 var peopleAttribute = property.GetCustomAttribute<UserAttribute>();
                 if (property.PropertyType == typeof(KeyValuePair<int, string>)) propertyValue = ((KeyValuePair<int, string>)propertyValue).Key;
