@@ -35,7 +35,7 @@
       <HintPath>..\..\Mydea\MydeaEntityO365\packages\AngleSharp.0.9.11\lib\net45\AngleSharp.dll</HintPath>
     </Reference>
     <Reference Include="AweCsome.Interfaces, Version=0.9.5.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\Mydea\MydeaEntityO365\packages\AweCsome.Interfaces.0.9.5-CI-20190709.3\lib\net452\AweCsome.Interfaces.dll</HintPath>
+      <HintPath>..\packages\AweCsome.Interfaces.0.9.5-CI-20190709.4\lib\net452\AweCsome.Interfaces.dll</HintPath>
     </Reference>
     <Reference Include="AweCsome.O365, Version=0.9.5.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\..\Mydea\MydeaEntityO365\packages\AweCsome.O365.0.9.5-CI-20190709.1\lib\net452\AweCsome.O365.dll</HintPath>
