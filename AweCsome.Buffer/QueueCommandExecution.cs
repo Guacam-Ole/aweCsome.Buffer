@@ -11,8 +11,8 @@ namespace AweCsome.Buffer
     public class QueueCommandExecution
     {
         private LiteDbQueue _queue;
-        private LiteDb _db;
-        private IAweCsomeTable _aweCsomeTable;
+        //private LiteDb _db;
+        private readonly IAweCsomeTable _aweCsomeTable;
         private Type _baseType;
         public QueueCommandExecution(LiteDbQueue queue, IAweCsomeTable awecsomeTable, Type baseType)
         {

@@ -25,7 +25,7 @@ namespace AweCsome.Buffer
         private enum DbModes { Memory, File, Undefined };
         private DbModes _dbMode = DbModes.Undefined;
         private static List<MemoryDatabase> _memoryDb = new List<MemoryDatabase>();
-        private static object _dbLock = new object();
+        private static readonly object _dbLock = new object();
         private LiteDB.LiteDatabase _database;
         protected IAweCsomeHelpers _helpers;
         protected string _databaseName;

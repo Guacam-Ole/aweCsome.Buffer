@@ -14,7 +14,7 @@ namespace AweCsome.Buffer
 {
     public class LiteDbQueue : LiteDb, ILiteDbQueue, ILiteDb
     {
-        private static object _queueLock = new object();
+        private static readonly object _queueLock = new object();
         private readonly ILog _log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
 
