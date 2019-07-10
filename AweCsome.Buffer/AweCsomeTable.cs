@@ -309,7 +309,6 @@ namespace AweCsome.Buffer
                 Action = Command.Actions.Like,
                 ItemId = id,
                 TableName = _helpers.GetListName<T>(),
-                //FullyQualifiedName = typeof(T).FullName,
                 Parameters = new Dictionary<string, object> { { "User", userId } }
             });
             return item;
@@ -319,7 +318,6 @@ namespace AweCsome.Buffer
         {
             return _db.GetCollection<T>().FindAll().ToList();
         }
-
 
         public AweCsomeLibraryFile SelectFileFromLibrary<T>(string foldername, string filename) where T : new()
         {

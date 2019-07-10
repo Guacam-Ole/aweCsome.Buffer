@@ -21,6 +21,7 @@ namespace AweCsome.Buffer.Entities
         public int? ItemId { get; set; }
         public DateTime Created { get; } = DateTime.Now;
         public string FullyQualifiedName { get; set; }
+        public int Priority { get; set; } = 1;
 
         public override string ToString()
         {
