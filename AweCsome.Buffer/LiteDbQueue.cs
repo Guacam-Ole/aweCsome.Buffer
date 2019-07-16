@@ -87,12 +87,12 @@ namespace AweCsome.Buffer
         {
             var db = new LiteDb(_helpers, _aweCsomeTable, _databaseName);
             MethodInfo method = GetMethod<LiteDb>(q => q.GetCollection<object>());
-            
+
 
             dynamic collection = CallGenericMethodByName(db, method, baseType, fullyQualifiedName, null);
             var entity = collection.FindById(oldId);
 
-            if (entity==null)
+            if (entity == null)
             {
                 _log.Error($"Cannot find {fullyQualifiedName} from id {oldId} to change to {newId}");
                 throw new KeyNotFoundException();
@@ -131,7 +131,7 @@ namespace AweCsome.Buffer
                     {
                         meta.ParentId = newId;
                         db.UpdateMetadata(file.Id, db.GetMetadataFromAttachment(meta));
-                        
+
                     }
                 }
                 else
@@ -180,7 +180,7 @@ namespace AweCsome.Buffer
                                 //file.Metadata = db.GetMetadataFromAttachment(meta);
                             }
                         }
-                       
+
                     }
                 }
             }
@@ -242,7 +242,7 @@ namespace AweCsome.Buffer
             {
                 if (!collectionNames.Contains(subType.Name)) continue;
 
-                bool modifyId = FindLookupProperties( subType,  changedListname, out List<PropertyInfo> lookupProperties, out List<PropertyInfo> virtualStaticProperties, out List<PropertyInfo> virtualDynamicProperties);
+                bool modifyId = FindLookupProperties(subType, changedListname, out List<PropertyInfo> lookupProperties, out List<PropertyInfo> virtualStaticProperties, out List<PropertyInfo> virtualDynamicProperties);
                 if (modifyId)
                 {
                     var collection = db.GetCollection(subType.Name);
@@ -258,17 +258,20 @@ namespace AweCsome.Buffer
                                 elementChanged = true;
                             }
                         }
-                        foreach (var virtualStaticPropery in virtualStaticProperties)
+                        foreach (var virtualStaticProperty in virtualStaticProperties)
                         {
-                            if ((int?)element[virtualStaticPropery.Name] == oldId)
+                            if (!element.ContainsKey(virtualStaticProperty.Name)) continue;
+                            if ((int?)element[virtualStaticProperty.Name] == oldId)
                             {
-                                element[virtualStaticPropery.Name] = newId;
+                                element[virtualStaticProperty.Name] = newId;
                                 elementChanged = true;
                             }
                         }
                         foreach (var virtualDynamicProperty in virtualDynamicProperties)
                         {
                             var attribute = virtualDynamicProperty.GetCustomAttribute<VirtualLookupAttribute>();
+                            if (!element.ContainsKey(attribute.DynamicTargetProperty)) continue;
+
                             if (element[attribute.DynamicTargetProperty] == changedListname)
                             {
                                 if ((int?)element[virtualDynamicProperty.Name] == oldId)
