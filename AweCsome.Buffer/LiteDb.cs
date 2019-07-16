@@ -278,6 +278,7 @@ namespace AweCsome.Buffer
         {
             var collection = GetCollection<T>(listname);
             collection.EnsureIndex("Id");
+            collection.EnsureIndex(nameof(Entities.AweCsomeListItemBuffered.BufferId));
 
             int minIdBuffer = collection.Min(nameof(Entities.AweCsomeListItemBuffered.BufferId)).AsInt32;
             int minId = collection.Min().AsInt32;
