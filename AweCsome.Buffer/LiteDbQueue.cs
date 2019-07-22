@@ -177,10 +177,8 @@ namespace AweCsome.Buffer
                             {
                                 meta.AdditionalInformation = JsonConvert.SerializeObject(entity, Formatting.Indented);
                                 db.UpdateMetadata(file.Id, db.GetMetadataFromAttachment(meta));
-                                //file.Metadata = db.GetMetadataFromAttachment(meta);
                             }
                         }
-
                     }
                 }
             }
