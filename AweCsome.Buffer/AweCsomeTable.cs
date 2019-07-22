@@ -19,12 +19,12 @@ namespace AweCsome.Buffer
         private LiteDb _db;
         public ILiteDbQueue Queue { get; }
 
-        public AweCsomeTable(IAweCsomeTable baseTable, IAweCsomeHelpers helpers, string databasename)
+        public AweCsomeTable(IAweCsomeTable baseTable, IAweCsomeHelpers helpers, string connectionString, string queueConnectionString = null)
         {
             _baseTable = baseTable;
             _helpers = helpers;
-            _db = new LiteDb(helpers, baseTable, databasename);
-            Queue = new LiteDbQueue(helpers, baseTable, databasename);
+            _db = new LiteDb(helpers, baseTable, connectionString);
+            Queue = new LiteDbQueue(helpers, baseTable, queueConnectionString ?? connectionString);
         }
 
         public void EmptyStorage()
@@ -88,22 +88,9 @@ namespace AweCsome.Buffer
             return _db.GetCollection<T>().Count();
         }
 
-        public int CountItemsByFieldValue<T>(string fieldname, object value) where T:new()
+        public int CountItemsByFieldValue<T>(string fieldname, object value) where T : new()
         {
             return SelectItemsByFieldValue<T>(fieldname, value).Count();
-
-            //int counter = 0;
-            //var collection = _db.GetCollection<T>();
-            //PropertyInfo property = null;
-
-            //foreach (var item in collection.FindAll())
-            //{
-            //    property = property ?? typeof(T).GetProperty(fieldname);
-            //    if (property == null) throw new MissingFieldException($"Field '{fieldname}' cannot be found");
-            //    if (!property.CanRead) throw new FieldAccessException($"Field '{fieldname}' cannot be queried");
-            //    if (property.GetValue(item) == value) counter++;
-            //}
-            //return counter;
         }
 
         private bool ItemMatchesConditions<T>(T item, Dictionary<string, object> conditions, bool isAndCondition)
@@ -219,7 +206,7 @@ namespace AweCsome.Buffer
             {
                 Action = Command.Actions.Delete,
                 ItemId = id,
-              //  FullyQualifiedName = typeof(T).FullName,
+                //  FullyQualifiedName = typeof(T).FullName,
                 TableName = _helpers.GetListName<T>()
             });
         }
