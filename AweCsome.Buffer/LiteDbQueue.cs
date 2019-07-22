@@ -18,7 +18,7 @@ namespace AweCsome.Buffer
         private readonly ILog _log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
 
-        public LiteDbQueue(IAweCsomeHelpers helpers, IAweCsomeTable aweCsomeTable, string databaseName) : base(helpers, aweCsomeTable, databaseName, true)
+        public LiteDbQueue(IAweCsomeHelpers helpers, IAweCsomeTable aweCsomeTable, string connectionString) : base(helpers, aweCsomeTable, connectionString, true)
         {
         }
 
@@ -64,7 +64,7 @@ namespace AweCsome.Buffer
 
         public object GetFromDbById(Type baseType, string fullyQualifiedName, int id)
         {
-            var db = new LiteDb(_helpers, _aweCsomeTable, _databaseName);
+            var db = new LiteDb(_helpers, _aweCsomeTable, _connectionString);
             MethodInfo method = GetMethod<LiteDb>(q => q.GetCollection<object>());
             dynamic collection = CallGenericMethodByName(db, method, baseType, fullyQualifiedName, null);
 
@@ -73,19 +73,19 @@ namespace AweCsome.Buffer
 
         public System.IO.MemoryStream GetAttachmentStreamFromDbById(string id, out string filename, out BufferFileMeta meta)
         {
-            var db = new LiteDb(_helpers, _aweCsomeTable, _databaseName);
+            var db = new LiteDb(_helpers, _aweCsomeTable, _connectionString);
             return db.GetAttachmentStreamById(id, out filename, out meta);
         }
 
         public void DeleteAttachmentFromDbWithoutSyncing(BufferFileMeta meta)
         {
-            var db = new LiteDb(_helpers, _aweCsomeTable, _databaseName);
+            var db = new LiteDb(_helpers, _aweCsomeTable, _connectionString);
             db.RemoveAttachment(meta);
         }
 
         public void UpdateId(Type baseType, string fullyQualifiedName, int oldId, int newId)
         {
-            var db = new LiteDb(_helpers, _aweCsomeTable, _databaseName);
+            var db = new LiteDb(_helpers, _aweCsomeTable, _connectionString);
             MethodInfo method = GetMethod<LiteDb>(q => q.GetCollection<object>());
 
 
@@ -121,7 +121,7 @@ namespace AweCsome.Buffer
 
         private void UpdateFileLookups(Type baseType, string changedListname, int oldId, int newId)
         {
-            var db = new LiteDb(_helpers, _aweCsomeTable, _databaseName);
+            var db = new LiteDb(_helpers, _aweCsomeTable, _connectionString);
             foreach (var file in db.GetAllFiles())
             {
                 var meta = db.GetMetadataFromAttachment(file.Metadata);
@@ -235,7 +235,7 @@ namespace AweCsome.Buffer
 
         private void UpdateLookups(Type baseType, string changedListname, int oldId, int newId)
         {
-            var db = new LiteDb(_helpers, _aweCsomeTable, _databaseName);
+            var db = new LiteDb(_helpers, _aweCsomeTable, _connectionString);
             List<string> collectionNames = db.GetCollectionNames().ToList();
             var subTypes = baseType.Assembly.GetTypes();
             foreach (var subType in subTypes)
@@ -303,7 +303,7 @@ namespace AweCsome.Buffer
             _log.Info($"Working with queue ({queueCount} pending commands)");
             Command command;
             int realCount = 0;
-            while ((command = Read().Where(q => q.State == Command.States.Pending || q.State==Command.States.Failed).OrderBy(q => q.Id).ToList().FirstOrDefault()) != null)
+            while ((command = Read().Where(q => q.State == Command.States.Pending || q.State == Command.States.Failed).OrderBy(q => q.Id).ToList().FirstOrDefault()) != null)
             {
                 realCount++;
                 _log.Debug($"storing command {command}");
@@ -311,12 +311,13 @@ namespace AweCsome.Buffer
                 try
                 {
                     MethodInfo method = typeof(QueueCommandExecution).GetMethod(commandAction);
-                    bool success=(bool)method.Invoke(execution, new object[] { command });
+                    bool success = (bool)method.Invoke(execution, new object[] { command });
                     if (success)
                     {
                         command.State = Command.States.Succeeded;
                         Update(command);
-                    } else
+                    }
+                    else
                     {
                         _log.Error("Command failed");
                         command.State = Command.States.Failed;

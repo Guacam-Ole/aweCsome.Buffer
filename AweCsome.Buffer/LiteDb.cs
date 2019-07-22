@@ -27,14 +27,13 @@ namespace AweCsome.Buffer
         private static readonly object _dbLock = new object();
         private LiteDB.LiteDatabase _database;
         protected IAweCsomeHelpers _helpers;
-        protected string _databaseName;
+        protected string _connectionString;
         protected IAweCsomeTable _aweCsomeTable;
 
         public LiteDb(IAweCsomeHelpers helpers, IAweCsomeTable aweCsomeTable, string connectionString, bool queue = false)
         {
-            _databaseName = connectionString;
+            _connectionString = connectionString;
             _aweCsomeTable = aweCsomeTable;
-            if (queue) connectionString += ".QUEUE";
             _database = GetDatabase(connectionString, queue);
             _helpers = helpers;
             RegisterMappers();

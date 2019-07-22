@@ -19,12 +19,12 @@ namespace AweCsome.Buffer
         private LiteDb _db;
         public ILiteDbQueue Queue { get; }
 
-        public AweCsomeTable(IAweCsomeTable baseTable, IAweCsomeHelpers helpers, string connectionString, string queueConnectionString = null)
+        public AweCsomeTable(IAweCsomeTable baseTable, IAweCsomeHelpers helpers, string connectionString)
         {
             _baseTable = baseTable;
             _helpers = helpers;
             _db = new LiteDb(helpers, baseTable, connectionString);
-            Queue = new LiteDbQueue(helpers, baseTable, queueConnectionString ?? connectionString);
+            Queue = new LiteDbQueue(helpers, baseTable, connectionString);
         }
 
         public void EmptyStorage()
@@ -138,9 +138,6 @@ namespace AweCsome.Buffer
 
             if (collection.Count() == 0) return 0;
             var allItems = collection.FindAll();
-
-
-
 
             foreach (var item in allItems)
             {

@@ -16,8 +16,6 @@ namespace AweCsome.Buffer
         private readonly IAweCsomeTable _aweCsomeTable;
         private Type _baseType;
 
-        public ILog Log => _log;
-
         public QueueCommandExecution(LiteDbQueue queue, IAweCsomeTable awecsomeTable, Type baseType)
         {
             _queue = queue;
