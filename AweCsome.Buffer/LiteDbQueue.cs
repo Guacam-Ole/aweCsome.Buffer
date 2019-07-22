@@ -303,7 +303,7 @@ namespace AweCsome.Buffer
             _log.Info($"Working with queue ({queueCount} pending commands)");
             Command command;
             int realCount = 0;
-            while ((command = Read().Where(q => q.State == Command.States.Pending).OrderBy(q => q.Id).ToList().FirstOrDefault()) != null)
+            while ((command = Read().Where(q => q.State == Command.States.Pending || q.State==Command.States.Failed).OrderBy(q => q.Id).ToList().FirstOrDefault()) != null)
             {
                 realCount++;
                 _log.Debug($"storing command {command}");
@@ -311,9 +311,17 @@ namespace AweCsome.Buffer
                 try
                 {
                     MethodInfo method = typeof(QueueCommandExecution).GetMethod(commandAction);
-                    method.Invoke(execution, new object[] { command });
-                    command.State = Command.States.Succeeded;
-                    Update(command);
+                    bool success=(bool)method.Invoke(execution, new object[] { command });
+                    if (success)
+                    {
+                        command.State = Command.States.Succeeded;
+                        Update(command);
+                    } else
+                    {
+                        _log.Error("Command failed");
+                        command.State = Command.States.Failed;
+                        Update(command);
+                    }
                 }
                 catch (Exception ex)
                 {
