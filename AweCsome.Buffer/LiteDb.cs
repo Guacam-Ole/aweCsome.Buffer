@@ -12,7 +12,6 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.RegularExpressions;
-using System.Web.Hosting;
 
 namespace AweCsome.Buffer
 {
@@ -31,12 +30,12 @@ namespace AweCsome.Buffer
         protected string _databaseName;
         protected IAweCsomeTable _aweCsomeTable;
 
-        public LiteDb(IAweCsomeHelpers helpers, IAweCsomeTable aweCsomeTable, string databaseName, bool queue = false)
+        public LiteDb(IAweCsomeHelpers helpers, IAweCsomeTable aweCsomeTable, string connectionString, bool queue = false)
         {
-            _databaseName = databaseName;
+            _databaseName = connectionString;
             _aweCsomeTable = aweCsomeTable;
-            if (queue) databaseName += ".QUEUE";
-            _database = GetDatabase(databaseName, queue);
+            if (queue) connectionString += ".QUEUE";
+            _database = GetDatabase(connectionString, queue);
             _helpers = helpers;
             RegisterMappers();
         }
@@ -181,7 +180,7 @@ namespace AweCsome.Buffer
             return _database.FileStorage.FindAll();
         }
 
-        public List<AweCsomeLibraryFile> GetFilesFromDocLib<T>(string folder, bool retrieveContent=true) where T:new()
+        public List<AweCsomeLibraryFile> GetFilesFromDocLib<T>(string folder, bool retrieveContent = true) where T : new()
         {
             var matches = new List<AweCsomeLibraryFile>();
 
@@ -237,7 +236,7 @@ namespace AweCsome.Buffer
             return meta;
         }
 
-        public T GetMetadataFromAttachment<T>(BsonDocument doc) where T:new()
+        public T GetMetadataFromAttachment<T>(BsonDocument doc) where T : new()
         {
             var meta = new T();
             foreach (var property in typeof(T).GetProperties())
@@ -291,7 +290,8 @@ namespace AweCsome.Buffer
             return collection.Insert(item);
         }
 
-        private void SetBufferId<T>(T item, int id) {
+        private void SetBufferId<T>(T item, int id)
+        {
             var property = typeof(T).GetProperty(nameof(Entities.AweCsomeListItemBuffered.BufferId));
             if (property == null) return;
             property.SetValue(item, id);
@@ -314,44 +314,32 @@ namespace AweCsome.Buffer
             return _database.GetCollectionNames();
         }
 
-        private string CreateConnectionString(string databasename)
+        private string AddPasswordToDbName(string dbName, string cleanedUrl)
         {
-            string path = null;
-            string absolutePath = ConfigurationManager.AppSettings["AweCsomeLiteDbPath"];
-            if (absolutePath != null) path = Path.Combine(Environment.ExpandEnvironmentVariables(absolutePath), databasename);
-            path = path ?? HostingEnvironment.MapPath(databasename);    // No AbsolutePath
-            path = path ?? Environment.CurrentDirectory + "\\" + databasename;// No Web environment
-         //   _log.Debug($"DB-Path: {path}");
+            string setting_name = $"password_{cleanedUrl}";
+            string password = ConfigurationManager.AppSettings[setting_name];
+            if (password == null) return "Filename=" + dbName;
 
-            return "Filename=" + path;
+            return $"Filename=\"{dbName}\"; Password=\"{password}\"";
         }
 
-        private LiteDatabase GetDatabase(string databaseName, bool isQueue)
+
+        private LiteDatabase GetDatabase(string connectionString, bool isQueue)
         {
             if (_dbMode == DbModes.Undefined)
             {
                 string dbModeSetting = ConfigurationManager.AppSettings["DbMode"];
-                if (dbModeSetting == null)
-                {
-                    _dbMode = DbModes.File;
-                }
-                else
-                {
-                    _dbMode = DbModes.Memory;
-                }
+                _dbMode = dbModeSetting == null ? DbModes.File : DbModes.Memory;
             }
             lock (_dbLock)
             {
                 if (_dbMode == DbModes.Memory)
                 {
-                    var oldDb = _memoryDb.FirstOrDefault(q => q.Filename == databaseName);
-                    if (oldDb == null) _memoryDb.Add(new MemoryDatabase { Filename = databaseName, IsQueue = isQueue, Database = new LiteDB.LiteDatabase(new MemoryStream()) });
-                    return _memoryDb.First(q => q.Filename == databaseName).Database;
+                    var oldDb = _memoryDb.FirstOrDefault(q => q.Filename == connectionString);
+                    if (oldDb == null) _memoryDb.Add(new MemoryDatabase { Filename = connectionString, IsQueue = isQueue, Database = new LiteDatabase(new MemoryStream()) });
+                    return _memoryDb.First(q => q.Filename == connectionString).Database;
                 }
-                else
-                {
-                    return new LiteDatabase(CreateConnectionString(databaseName));
-                }
+                return new LiteDatabase(connectionString);
             }
         }
 
