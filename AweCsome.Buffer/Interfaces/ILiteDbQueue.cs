@@ -13,5 +13,6 @@ namespace AweCsome.Buffer.Interfaces
         void UpdateId(Type baseType, string fullyQualifiedName, int oldId, int newId);
         void Sync(Type baseType);
         void Empty();
+        void Delete(Command command);
     }
 }

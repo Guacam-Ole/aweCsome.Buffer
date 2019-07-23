@@ -52,7 +52,7 @@ namespace AweCsome.Buffer
             GetCollection<Command>(null).Update(command);
         }
 
-        private void Delete(Command command)
+        public void Delete(Command command)
         {
             GetCollection<Command>().Delete(command.Id);
         }
