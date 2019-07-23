@@ -23,6 +23,24 @@ namespace AweCsome.Buffer
             _baseType = baseType;
         }
 
+        private bool HasBeenDeletedBefore(Command command)
+        {
+            var allCommands = _queue.Read();
+            var commandsFromElement = allCommands.Where(q => q.ItemId == command.ItemId && q.FullyQualifiedName == command.FullyQualifiedName);
+            bool hasBeenDeleted = commandsFromElement.FirstOrDefault(q => q.Action == Command.Actions.Delete) != null;
+            if (hasBeenDeleted) _log.Warn($"Will not run command {command}, because Item has been deleted");
+            return hasBeenDeleted;
+        }
+
+        private bool HasBeenInsertedBefore(Command command)
+        {
+            var allCommands = _queue.Read();
+            var commandsFromElement = allCommands.Where(q => q.ItemId == command.ItemId && q.FullyQualifiedName == command.FullyQualifiedName);
+            bool hasBeenInserted = commandsFromElement.FirstOrDefault(q => q.Action == Command.Actions.Insert) != null;
+            if (hasBeenInserted) _log.Warn($"Will not run command {command}, because Item has never been created in SharePoint");
+            return hasBeenInserted;
+        }
+
         public bool DeleteTable(Command command)
         {
             try
@@ -44,6 +62,7 @@ namespace AweCsome.Buffer
             {
                 MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.CreateTable<object>());
                 _queue.CallGenericMethodByName(_aweCsomeTable, method, _baseType, command.FullyQualifiedName, null);
+                command.State = Command.States.Disabled;
                 return true;
             }
             catch (Exception ex)
@@ -57,6 +76,7 @@ namespace AweCsome.Buffer
         {
             try
             {
+                if (HasBeenDeletedBefore(command)) return true;
                 object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
                 MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.InsertItem<object>(element));
                 int newId = (int)_queue.CallGenericMethodByName(_aweCsomeTable, method, _baseType, command.FullyQualifiedName, new object[] { element });
@@ -74,6 +94,7 @@ namespace AweCsome.Buffer
         {
             try
             {
+                if (HasBeenInsertedBefore(command)) return true;
                 MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.DeleteItemById<object>(command.ItemId.Value));
                 _queue.CallGenericMethodByName(_aweCsomeTable, method, _baseType, command.FullyQualifiedName, new object[] { command.ItemId.Value });
                 return true;
@@ -89,6 +110,7 @@ namespace AweCsome.Buffer
         {
             try
             {
+                if (HasBeenDeletedBefore(command)) return true;
                 object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
                 MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.UpdateItem(element));
                 _queue.CallGenericMethodByName(_aweCsomeTable, method, _baseType, command.FullyQualifiedName, new object[] { element });
@@ -104,6 +126,7 @@ namespace AweCsome.Buffer
         {
             try
             {
+                if (HasBeenDeletedBefore(command)) return true;
                 object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
                 MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.Like<object>(0, 0));
                 _queue.CallGenericMethodByName(_aweCsomeTable, method, _baseType, command.FullyQualifiedName, new object[] { command.ItemId.Value, (int)command.Parameters.First().Value });
@@ -120,6 +143,7 @@ namespace AweCsome.Buffer
         {
             try
             {
+                if (HasBeenDeletedBefore(command)) return true;
                 object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
                 MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.Unlike<object>(0, 0));
                 _queue.CallGenericMethodByName(_aweCsomeTable, method, _baseType, command.FullyQualifiedName, new object[] { command.ItemId.Value, (int)command.Parameters.First().Value });
@@ -151,6 +175,7 @@ namespace AweCsome.Buffer
         {
             try
             {
+                if (HasBeenDeletedBefore(command)) return true;
                 object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
                 var attachmentStream = _queue.GetAttachmentStreamFromDbById((string)command.Parameters["AttachmentId"], out string filename, out BufferFileMeta meta);
                 attachmentStream.Seek(0, SeekOrigin.Begin);
@@ -171,6 +196,7 @@ namespace AweCsome.Buffer
         {
             try
             {
+                if (HasBeenDeletedBefore(command)) return true;
                 object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
                 string filename = (string)command.Parameters["Filename"];
                 MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.DeleteFileFromItem<object>(command.ItemId.Value, filename));
@@ -188,6 +214,7 @@ namespace AweCsome.Buffer
         {
             try
             {
+                if (HasBeenDeletedBefore(command)) return true;
                 var attachmentStream = _queue.GetAttachmentStreamFromDbById((string)command.Parameters["AttachmentId"], out string filename, out BufferFileMeta meta);
                 string folder = meta.Folder;
                 object element = null;
@@ -216,6 +243,7 @@ namespace AweCsome.Buffer
         {
             try
             {
+                if (HasBeenDeletedBefore(command)) return true;
                 object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
                 string folder = (string)command.Parameters["Folder"];
                 string filename = (string)command.Parameters["Filename"];
