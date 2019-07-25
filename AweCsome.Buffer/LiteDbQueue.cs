@@ -320,6 +320,7 @@ namespace AweCsome.Buffer
                         _log.Error("Command failed");
                         command.State = Command.States.Failed;
                         Update(command);
+                        break;
                     }
                 }
                 catch (Exception ex)
