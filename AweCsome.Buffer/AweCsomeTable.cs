@@ -383,6 +383,16 @@ namespace AweCsome.Buffer
                 var peopleAttribute = property.GetCustomAttribute<UserAttribute>();
                 if (property.PropertyType == typeof(KeyValuePair<int, string>)) propertyValue = ((KeyValuePair<int, string>)propertyValue).Key;
                 if (property.PropertyType == typeof(Dictionary<int, string>)) propertyValue = ((Dictionary<int, string>)propertyValue).Keys.ToArray();
+                if (property.PropertyType.IsClass)
+                {
+                    var idProperty = property.PropertyType.GetProperty("Id");
+                    if (idProperty!=null)
+                    {
+                        var id = idProperty.GetValue(propertyValue);
+                        if (id.Equals(value)) matches.Add(item);
+                        continue;
+                    }
+                }
                 if (propertyValue.Equals(value))
                 {
                     matches.Add(item);
