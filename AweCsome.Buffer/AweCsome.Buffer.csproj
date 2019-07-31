@@ -38,9 +38,6 @@
     <Reference Include="AweCsome.Interfaces, Version=0.10.1.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\AweCsome.Interfaces.0.10.1-CI-20190731.2\lib\net452\AweCsome.Interfaces.dll</HintPath>
     </Reference>
-    <Reference Include="AweCsome.O365, Version=0.10.1.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\AweCsome.O365.0.10.1-CI-20190731.2\lib\net452\AweCsome.O365.dll</HintPath>
-    </Reference>
     <Reference Include="LiteDB, Version=4.1.4.0, Culture=neutral, PublicKeyToken=4ee40123013c9f27, processorArchitecture=MSIL">
       <HintPath>..\packages\LiteDB.4.1.4\lib\net40\LiteDB.dll</HintPath>
     </Reference>
