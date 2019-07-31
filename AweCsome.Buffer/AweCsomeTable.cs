@@ -550,5 +550,10 @@ namespace AweCsome.Buffer
         {
             _db.ReadAllFromList(entityType);
         }
+
+        public void UpdateTableStructure<T>()
+        {
+            _baseTable.UpdateTableStructure<T>();
+        }
     }
 }
