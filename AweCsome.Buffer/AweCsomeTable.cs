@@ -271,7 +271,8 @@ namespace AweCsome.Buffer
 
         public T Like<T>(int id, int userId) where T : new()
         {
-            var item = _db.GetCollection<T>().FindById(id);
+            var item = SelectItemById<T>(id);
+            //var item = _db.GetCollection<T>().FindById(id);
             if (item == null) throw new Exceptions.ItemNotFoundException();
 
             GetLikeData(item, out int likesCount, out Dictionary<int, string> likedBy);
@@ -469,7 +470,7 @@ namespace AweCsome.Buffer
 
         public T Unlike<T>(int id, int userId) where T : new()
         {
-            var item = _db.GetCollection<T>().FindById(id);
+            var item = SelectItemById<T>(id);
             if (item == null) throw new Exceptions.ItemNotFoundException();
             GetLikeData(item, out int likesCount, out Dictionary<int, string> likedBy);
             if (!likedBy.ContainsKey(userId))
