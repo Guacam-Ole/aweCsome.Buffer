@@ -340,8 +340,8 @@ namespace AweCsome.Buffer
 
         public List<AweCsomeLibraryFile> SelectFilesFromLibrary<T>(string foldername, bool retrieveContent = true) where T : new()
         {
-            var localFiles = _db.GetFilesFromDocLib<T>(foldername, retrieveContent);
-            var spFiles = _baseTable.SelectFilesFromLibrary<T>(foldername, retrieveContent);
+            var localFiles = _db.GetFilesFromDocLib<T>(foldername, retrieveContent) ?? new List<AweCsomeLibraryFile>();
+            var spFiles = _baseTable.SelectFilesFromLibrary<T>(foldername, retrieveContent) ?? new List<AweCsomeLibraryFile>();
             localFiles.ForEach(q => spFiles.Add(q));
             return spFiles;
         }
