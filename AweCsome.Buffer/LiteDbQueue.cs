@@ -221,7 +221,7 @@ namespace AweCsome.Buffer
                     }
                     else if (lookupAttribute != null)
                     {
-                        if (lookupAttribute.List != changedListname) continue;
+                        if ((lookupAttribute.List ?? property.Name) != changedListname) continue;
                         lookupProperties.Add(property);
                         modifyId = true;
                     }
@@ -250,11 +250,36 @@ namespace AweCsome.Buffer
                     {
                         foreach (var lookupProperty in lookupProperties)
                         {
-                            if ((int?)element[lookupProperty.Name] == oldId)
+                            var targetType = element[lookupProperty.Name].GetType();
+                            if (element[lookupProperty.Name] is LiteDB.BsonDocument)
                             {
-                                element[lookupProperty.Name] = newId;
-                                elementChanged = true;
+                                var bson = (LiteDB.BsonDocument)element[lookupProperty.Name];
+                                var id = bson["_id"];
+                                if (id==oldId)
+                                {
+                                    bson["_id"] = newId;
+                                    element[lookupProperty.Name] = bson;
+                                    elementChanged = true;
+                                }
                             }
+                            else if (targetType.IsClass)
+                            {
+                                var idProperty = targetType.GetProperty("Id");
+                                if (idProperty == null) throw new Exception("Unexpected LookupType");
+                                var id = idProperty.GetValue(element[lookupProperty.Name]);
+                                if (id.Equals(oldId))
+                                {
+                                    idProperty.SetValue(element[lookupProperty.Name], newId);
+                                    elementChanged = true;
+                                }
+                            } else { 
+                                if ((int?)element[lookupProperty.Name] == oldId)
+                                {
+                                    element[lookupProperty.Name] = newId;
+                                    elementChanged = true;
+                                }
+                            }
+
                         }
                         foreach (var virtualStaticProperty in virtualStaticProperties)
                         {

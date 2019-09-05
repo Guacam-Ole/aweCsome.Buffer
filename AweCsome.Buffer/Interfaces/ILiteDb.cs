@@ -26,7 +26,7 @@ namespace AweCsome.Buffer.Interfaces
         LiteCollection<BsonDocument> GetCollection(string name);
         void DeleteTable(string name);
         void ReadAllFromList<T>() where T : new();
-        void ReadAllLists(Type baseType);
+        void ReadAllLists(Type baseType, string forbiddenNamespace=null);
         MethodInfo GetMethod<T>(Expression<Action<T>> expr);
         object CallGenericMethodByName(object baseObject, MethodInfo method, Type baseType, string fullyQualifiedName, object[] parameters);
         object CallGenericMethod(object baseObject, MethodInfo method, Type entityType, object[] parameters);

@@ -426,13 +426,14 @@ namespace AweCsome.Buffer
                 .GetGenericMethodDefinition();
         }
 
-        public void ReadAllLists(Type baseType)
+        public void ReadAllLists(Type baseType, string forbiddenNamespace=null)
         {
             foreach (var type in baseType.Assembly.GetTypes())
             {
                 var constructor = type.GetConstructor(Type.EmptyTypes);
                 if (constructor == null)
                     continue;
+                if (forbiddenNamespace!=null && type.Namespace.Contains(forbiddenNamespace)) continue;
                 MethodInfo method = GetMethod<LiteDbQueue>(q => q.ReadAllFromList<object>());
                 CallGenericMethod(this, method, type, null);
             }

@@ -316,9 +316,14 @@ namespace AweCsome.Buffer
             return spFile;
         }
 
+        public List<string> GetLocalFiles<T>(int id)
+        {
+            return _db.GetAttachmentNamesFromItem<T>(id);
+        }
+
         public List<string> SelectFileNamesFromItem<T>(int id)
         {
-            var localFiles = _db.GetAttachmentNamesFromItem<T>(id);
+            var localFiles = GetLocalFiles<T>(id);
             var remoteFiles = _baseTable.SelectFileNamesFromItem<T>(id);
             localFiles.ForEach(q => remoteFiles.Add(q));
             return remoteFiles;
