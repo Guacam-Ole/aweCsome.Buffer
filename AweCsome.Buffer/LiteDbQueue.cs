@@ -32,6 +32,13 @@ namespace AweCsome.Buffer
 
         public void AddCommand<T>(Command command)
         {
+            var dontSyncProperty = typeof(T).GetCustomAttribute<DontSync>();
+            if (dontSyncProperty != null)
+            {
+                _log.Debug($"Sync disabled because of DontSync-Attribute for {typeof(T).Name}");
+                return;
+            }
+
             lock (_queueLock)
             {
                 var commandCollection = GetCollection<Command>();
@@ -255,7 +262,7 @@ namespace AweCsome.Buffer
                             {
                                 var bson = (LiteDB.BsonDocument)element[lookupProperty.Name];
                                 var id = bson["_id"];
-                                if (id==oldId)
+                                if (id == oldId)
                                 {
                                     bson["_id"] = newId;
                                     element[lookupProperty.Name] = bson;
@@ -272,7 +279,9 @@ namespace AweCsome.Buffer
                                     idProperty.SetValue(element[lookupProperty.Name], newId);
                                     elementChanged = true;
                                 }
-                            } else { 
+                            }
+                            else
+                            {
                                 if ((int?)element[lookupProperty.Name] == oldId)
                                 {
                                     element[lookupProperty.Name] = newId;

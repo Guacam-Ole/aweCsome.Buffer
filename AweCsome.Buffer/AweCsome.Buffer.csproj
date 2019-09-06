@@ -213,6 +213,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Attributes\DontSync.cs" />
     <Compile Include="Attributes\VirtualLookup.cs" />
     <Compile Include="AweCsomeTable.cs" />
     <Compile Include="BufferFileMeta.cs" />
