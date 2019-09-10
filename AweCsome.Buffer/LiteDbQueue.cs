@@ -33,11 +33,7 @@ namespace AweCsome.Buffer
         public void AddCommand<T>(Command command)
         {
             var dontSyncProperty = typeof(T).GetCustomAttribute<DontSync>();
-            if (dontSyncProperty != null)
-            {
-                _log.Debug($"Sync disabled because of DontSync-Attribute for {typeof(T).Name}");
-                return;
-            }
+            if (dontSyncProperty != null) return;
 
             lock (_queueLock)
             {
