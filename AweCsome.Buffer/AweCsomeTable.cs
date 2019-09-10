@@ -542,9 +542,9 @@ namespace AweCsome.Buffer
             return _db.GetCollectionNames().Contains(typeof(T).Name);
         }
 
-        public void ReadAllLists(Type baseType)
+        public void ReadAllLists(Type baseType, string forbiddenNamespace=null)
         {
-            _db.ReadAllLists(baseType);
+            _db.ReadAllLists(baseType, forbiddenNamespace);
         }
 
         public void ReadAllFromList<T>() where T : new()
