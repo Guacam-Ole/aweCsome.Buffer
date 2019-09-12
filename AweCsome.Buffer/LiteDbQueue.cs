@@ -268,12 +268,18 @@ namespace AweCsome.Buffer
                             else if (targetType.IsClass)
                             {
                                 var idProperty = targetType.GetProperty("Id");
-                                if (idProperty == null) throw new Exception("Unexpected LookupType");
-                                var id = idProperty.GetValue(element[lookupProperty.Name]);
-                                if (id.Equals(oldId))
+                                if (idProperty == null)
                                 {
-                                    idProperty.SetValue(element[lookupProperty.Name], newId);
-                                    elementChanged = true;
+                                    _log.Warn($"Unexpected LookupType. TargetType: {targetType.FullName}, lookupProperty: {lookupProperty.Name}");
+                                }
+                                else
+                                {
+                                    var id = idProperty.GetValue(element[lookupProperty.Name]);
+                                    if (id.Equals(oldId))
+                                    {
+                                        idProperty.SetValue(element[lookupProperty.Name], newId);
+                                        elementChanged = true;
+                                    }
                                 }
                             }
                             else
@@ -317,6 +323,7 @@ namespace AweCsome.Buffer
 
         public void Sync(Type baseType)
         {
+            var expectedState = Command.States.Pending;
             // Delete old Entries:
             var oldEntries = Read().Where(q => q.State == Command.States.Succeeded);
             _log.Debug($"Deleting {oldEntries.Count()} old entries from queue");
@@ -326,12 +333,12 @@ namespace AweCsome.Buffer
             }
 
             var execution = new QueueCommandExecution(this, _aweCsomeTable, baseType);
-            var queueCount = Read().Where(q => q.State == Command.States.Pending).Count();
+            var queueCount = Read().Where(q => q.State == expectedState).Count();
 
             _log.Info($"Working with queue ({queueCount} pending commands)");
             Command command;
             int realCount = 0;
-            while ((command = Read().Where(q => q.State == Command.States.Pending || q.State == Command.States.Failed).OrderBy(q => q.Id).ToList().FirstOrDefault()) != null)
+            while ((command = Read().Where(q => q.State == expectedState || q.State == Command.States.Failed).OrderBy(q => q.Id).ToList().FirstOrDefault()) != null)
             {
                 realCount++;
                 _log.Debug($"storing command {command}");
