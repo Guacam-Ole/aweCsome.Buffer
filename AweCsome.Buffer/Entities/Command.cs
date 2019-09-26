@@ -22,6 +22,7 @@ namespace AweCsome.Buffer.Entities
         public DateTime Created { get; } = DateTime.Now;
         public string FullyQualifiedName { get; set; }
         public int Priority { get; set; } = 1;
+     //   public int ErrorCount { get; set; } = 0;
 
         public override string ToString()
         {

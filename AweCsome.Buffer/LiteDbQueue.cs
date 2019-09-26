@@ -340,8 +340,13 @@ namespace AweCsome.Buffer
             int realCount = 0;
             while ((command = Read().Where(q => q.State == expectedState || q.State == Command.States.Failed).OrderBy(q => q.Id).ToList().FirstOrDefault()) != null)
             {
-                realCount++;
                 _log.Debug($"storing command {command}");
+                if (command.State==Command.States.Failed )
+                {
+                    _log.Error("Failed element in Queue. Can't continue. (Change state to 'Pending' if you want to retry)");
+                    break;
+                }
+                
                 string commandAction = $"{command.Action}";
                 try
                 {
@@ -349,6 +354,7 @@ namespace AweCsome.Buffer
                     bool success = (bool)method.Invoke(execution, new object[] { command });
                     if (success)
                     {
+                        realCount++;
                         command.State = Command.States.Succeeded;
                         Update(command);
                     }
