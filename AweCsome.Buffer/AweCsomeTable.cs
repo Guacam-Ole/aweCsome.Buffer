@@ -73,6 +73,8 @@ namespace AweCsome.Buffer
                 AdditionalInformation = JsonConvert.SerializeObject(entity, Formatting.Indented)
             }, filestream);
 
+
+
             Queue.AddCommand<T>(new Command
             {
                 Action = Command.Actions.AttachFileToLibrary,
@@ -160,7 +162,7 @@ namespace AweCsome.Buffer
                 AttachmentType = BufferFileMeta.AttachmentTypes.Attachment,
                 Filename = filename
             });
-            Queue.AddCommand<object>(new Command
+            Queue.AddCommand<T>(new Command
             {
                 Action = Command.Actions.RemoveAttachmentFromItem,
                 ItemId = id,
@@ -181,7 +183,7 @@ namespace AweCsome.Buffer
                     Filename = filename,
                     Folder = path
                 });
-                Queue.AddCommand<object>(new Command
+                Queue.AddCommand<T>(new Command
                 {
                     Action = Command.Actions.RemoveFileFromLibrary,
                     Parameters = new Dictionary<string, object> { { "Filename", filename }, { "Folder", path } },

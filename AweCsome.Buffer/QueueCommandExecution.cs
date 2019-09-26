@@ -197,7 +197,7 @@ namespace AweCsome.Buffer
             try
             {
                 if (HasBeenDeletedBefore(command)) return true;
-                object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
+         //       object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
                 string filename = (string)command.Parameters["Filename"];
                 MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.DeleteFileFromItem<object>(command.ItemId.Value, filename));
                 _queue.CallGenericMethodByName(_aweCsomeTable, method, _baseType, command.FullyQualifiedName, new object[] { command.ItemId.Value, filename });
@@ -244,7 +244,7 @@ namespace AweCsome.Buffer
             try
             {
                 if (HasBeenDeletedBefore(command)) return true;
-                object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
+            //    object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
                 string folder = (string)command.Parameters["Folder"];
                 string filename = (string)command.Parameters["Filename"];
 
