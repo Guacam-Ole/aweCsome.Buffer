@@ -15,6 +15,7 @@ namespace AweCsome.Buffer
         private LiteDbQueue _queue;
         private readonly IAweCsomeTable _aweCsomeTable;
         private Type _baseType;
+        public static Exception LastException{ get; set; }
 
         public QueueCommandExecution(LiteDbQueue queue, IAweCsomeTable awecsomeTable, Type baseType)
         {
@@ -52,6 +53,7 @@ namespace AweCsome.Buffer
             catch (Exception ex)
             {
                 _log.Error(ex);
+                LastException = ex;
                 return false;
             }
         }
@@ -68,6 +70,7 @@ namespace AweCsome.Buffer
             catch (Exception ex)
             {
                 _log.Error(ex);
+                LastException = ex;
                 return false;
             }
         }
@@ -86,6 +89,7 @@ namespace AweCsome.Buffer
             catch (Exception ex)
             {
                 _log.Error(ex);
+                LastException = ex;
                 return false;
             }
         }
@@ -102,6 +106,7 @@ namespace AweCsome.Buffer
             catch (Exception ex)
             {
                 _log.Error(ex);
+                LastException = ex;
                 return false;
             }
         }
@@ -119,6 +124,7 @@ namespace AweCsome.Buffer
             catch (Exception ex)
             {
                 _log.Error(ex);
+                LastException = ex;
                 return false;
             }
         }
@@ -135,6 +141,7 @@ namespace AweCsome.Buffer
             catch (Exception ex)
             {
                 _log.Error(ex);
+                LastException = ex;
                 return false;
             }
         }
@@ -152,6 +159,7 @@ namespace AweCsome.Buffer
             catch (Exception ex)
             {
                 _log.Error(ex);
+                LastException = ex;
                 return false;
             }
         }
@@ -167,6 +175,7 @@ namespace AweCsome.Buffer
             catch (Exception ex)
             {
                 _log.Error(ex);
+                LastException = ex;
                 return false;
             }
         }
@@ -188,6 +197,7 @@ namespace AweCsome.Buffer
             catch (Exception ex)
             {
                 _log.Error(ex);
+                LastException = ex;
                 return false;
             }
         }
@@ -206,6 +216,7 @@ namespace AweCsome.Buffer
             catch (Exception ex)
             {
                 _log.Error(ex);
+                LastException = ex;
                 return false;
             }
         }
@@ -235,6 +246,7 @@ namespace AweCsome.Buffer
             catch (Exception ex)
             {
                 _log.Error(ex);
+                LastException = ex;
                 return false;
             }
         }
@@ -255,6 +267,7 @@ namespace AweCsome.Buffer
             catch (Exception ex)
             {
                 _log.Error(ex);
+                LastException = ex;
                 return false;
             }
         }

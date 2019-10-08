@@ -9,7 +9,7 @@ namespace AweCsome.Buffer.Entities
     {
         public enum Actions { DeleteTable, CreateTable, Insert, Update, Delete, Empty, AttachFileToItem, RemoveAttachmentFromItem, AttachFileToLibrary, RemoveFileFromLibrary, Like, Unlike }
 
-        public enum States { Pending, Failed, Succeeded, Delayed, Disabled }
+        public enum States { Pending, Failed, Succeeded, Delayed, Disabled, Ignore }
 
         [JsonConverter(typeof(StringEnumConverter))]
         public Actions Action { get; set; }
@@ -22,7 +22,6 @@ namespace AweCsome.Buffer.Entities
         public DateTime Created { get; } = DateTime.Now;
         public string FullyQualifiedName { get; set; }
         public int Priority { get; set; } = 1;
-     //   public int ErrorCount { get; set; } = 0;
 
         public override string ToString()
         {

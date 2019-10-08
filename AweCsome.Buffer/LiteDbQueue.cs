@@ -3,8 +3,11 @@ using AweCsome.Buffer.Attributes;
 using AweCsome.Buffer.Entities;
 using AweCsome.Buffer.Interfaces;
 using AweCsome.Interfaces;
+
 using log4net;
+
 using Newtonsoft.Json;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,7 +19,7 @@ namespace AweCsome.Buffer
     {
         private static readonly object _queueLock = new object();
         private readonly ILog _log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
-
+        public Exception LastException { get; set; }
 
         public LiteDbQueue(IAweCsomeHelpers helpers, IAweCsomeTable aweCsomeTable, string connectionString) : base(helpers, aweCsomeTable, connectionString, true)
         {
@@ -91,7 +94,6 @@ namespace AweCsome.Buffer
             var db = new LiteDb(_helpers, _aweCsomeTable, _connectionString);
             MethodInfo method = GetMethod<LiteDb>(q => q.GetCollection<object>());
 
-
             dynamic collection = CallGenericMethodByName(db, method, baseType, fullyQualifiedName, null);
             var entity = collection.FindById(oldId);
 
@@ -134,7 +136,6 @@ namespace AweCsome.Buffer
                     {
                         meta.ParentId = newId;
                         db.UpdateMetadata(file.Id, db.GetMetadataFromAttachment(meta));
-
                     }
                 }
                 else
@@ -290,7 +291,6 @@ namespace AweCsome.Buffer
                                     elementChanged = true;
                                 }
                             }
-
                         }
                         foreach (var virtualStaticProperty in virtualStaticProperties)
                         {
@@ -323,7 +323,13 @@ namespace AweCsome.Buffer
 
         public void Sync(Type baseType)
         {
-            var expectedState = Command.States.Pending;
+            var expectedStates = new[]
+            {
+                Command.States.Pending,
+                Command.States.Failed,
+                Command.States.Delayed
+            };
+            LastException = null;
             // Delete old Entries:
             var oldEntries = Read().Where(q => q.State == Command.States.Succeeded);
             _log.Debug($"Deleting {oldEntries.Count()} old entries from queue");
@@ -333,23 +339,28 @@ namespace AweCsome.Buffer
             }
 
             var execution = new QueueCommandExecution(this, _aweCsomeTable, baseType);
-            var queueCount = Read().Where(q => q.State == expectedState).Count();
+            var queueCount = Read().Where(q => expectedStates.Contains(q.State)).Count();
 
             _log.Info($"Working with queue ({queueCount} pending commands)");
             Command command;
             int realCount = 0;
-            while ((command = Read().Where(q => q.State == expectedState || q.State == Command.States.Failed).OrderBy(q => q.Id).ToList().FirstOrDefault()) != null)
+            while ((command = Read().Where(q => expectedStates.Contains(q.State)).OrderBy(q => q.Id).ToList().FirstOrDefault()) != null)
             {
                 _log.Debug($"storing command {command}");
-                if (command.State==Command.States.Failed )
+                if (command.State == Command.States.Failed)
                 {
                     _log.Error("Failed element in Queue. Can't continue. (Change state to 'Pending' if you want to retry)");
                     break;
                 }
-                
+                if (command.State == Command.States.Delayed)
+                {
+                    _log.Warn("Retrying failed operation");
+                }
+
                 string commandAction = $"{command.Action}";
                 try
                 {
+                    QueueCommandExecution.LastException = null;
                     MethodInfo method = typeof(QueueCommandExecution).GetMethod(commandAction);
                     bool success = (bool)method.Invoke(execution, new object[] { command });
                     if (success)
@@ -360,8 +371,17 @@ namespace AweCsome.Buffer
                     }
                     else
                     {
-                        _log.Error("Command failed");
-                        command.State = Command.States.Failed;
+                        LastException = QueueCommandExecution.LastException;
+                        if (QueueCommandExecution.LastException != null && QueueCommandExecution.LastException.Message.Contains("(500)"))
+                        {
+                            _log.Error("Internal Server error. Will retry");
+                            command.State = Command.States.Delayed;
+                        }
+                        else
+                        {
+                            _log.Error("Command failed");
+                            command.State = Command.States.Failed;
+                        }
                         Update(command);
                         break;
                     }
