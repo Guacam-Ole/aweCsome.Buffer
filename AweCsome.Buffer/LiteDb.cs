@@ -1,8 +1,11 @@
 ﻿using AweCsome.Buffer.Interfaces;
 using AweCsome.Entities;
 using AweCsome.Interfaces;
+
 using LiteDB;
+
 using log4net;
+
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -21,7 +24,9 @@ namespace AweCsome.Buffer
 
         private const string PrefixAttachment = "UploadAttachment_";
         private const string PrefixFile = "UploadFile_";
+
         private enum DbModes { Memory, File, Undefined };
+
         private DbModes _dbMode = DbModes.Undefined;
         private static List<MemoryDatabase> _memoryDb = new List<MemoryDatabase>();
         private static readonly object _dbLock = new object();
@@ -68,6 +73,16 @@ namespace AweCsome.Buffer
             return list;
         }
 
+        private string SerializeDictionary<T, U>(Dictionary<T, U> list)
+        {
+            return string.Join("~\n", list.Select(q => SerializePair(q)));
+        }
+
+        private Dictionary<T, U> DeserializeDictionary<T, U>(string serialized)
+        {
+            return DeserializeList<T, U>(serialized).ToDictionary(q => q.Key, q => q.Value);
+        }
+
         private void RegisterMappers()
         {
             BsonMapper.Global.RegisterType(
@@ -75,8 +90,24 @@ namespace AweCsome.Buffer
                 deserialize: (bson) => DeserializePair<int, string>(bson.AsString)
                 );
             BsonMapper.Global.RegisterType(
+                serialize: (pair) => SerializePair(pair),
+                deserialize: (bson) => DeserializePair<long, string>(bson.AsString)
+                );
+            BsonMapper.Global.RegisterType(
                 serialize: (list) => SerializeList(list),
-                deserialize: (bson) => DeserializeList<DateTime, string>(bson.AsString)
+                deserialize: (bson) => DeserializeList<long, string>(bson.AsString)
+                );
+            BsonMapper.Global.RegisterType(
+                serialize: (list) => SerializeList(list),
+                deserialize: (bson) => DeserializeList<int, string>(bson.AsString)
+                );
+            BsonMapper.Global.RegisterType(
+                serialize: (list) => SerializeDictionary(list),
+                deserialize: (bson) => DeserializeDictionary<long, string>(bson.AsString)
+                );
+            BsonMapper.Global.RegisterType(
+                serialize: (list) => SerializeDictionary(list),
+                deserialize: (bson) => DeserializeDictionary<int, string>(bson.AsString)
                 );
         }
 
@@ -107,7 +138,6 @@ namespace AweCsome.Buffer
 
         protected LiteCollection<T> GetCollection<T>(string name)
         {
-
             name = name ?? typeof(T).Name;
             return _database.GetCollection<T>(name);
         }
@@ -355,7 +385,6 @@ namespace AweCsome.Buffer
             return $"Filename=\"{dbName}\"; Password=\"{password}\"";
         }
 
-
         private LiteDatabase GetDatabase(string connectionString, bool isQueue)
         {
             if (_dbMode == DbModes.Undefined)
@@ -411,9 +440,11 @@ namespace AweCsome.Buffer
                     case AweCsomeListUpdate.ChangeTypes.Add:
                         Insert(modification.Value, _helpers.GetListName<T>());
                         break;
+
                     case AweCsomeListUpdate.ChangeTypes.Delete:
                         Delete<T>(modification.Key.Id, _helpers.GetListName<T>());
                         break;
+
                     case AweCsomeListUpdate.ChangeTypes.Update:
                         Update(modification.Key.Id, modification.Value, _helpers.GetListName<T>());
                         break;
