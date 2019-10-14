@@ -1,0 +1,75 @@
+pool:
+  name: Azure Pipelines
+  demands:
+  - msbuild
+  - visualstudio
+
+#Your build pipeline references an undefined variable named ‘BuildPlatform’. Create or edit the build pipeline for this YAML file, define the variable on the Variables tab. See https://go.microsoft.com/fwlink/?linkid=865972
+#Your build pipeline references an undefined variable named ‘BuildConfiguration’. Create or edit the build pipeline for this YAML file, define the variable on the Variables tab. See https://go.microsoft.com/fwlink/?linkid=865972
+#Your build pipeline references an undefined variable named ‘BuildConfiguration’. Create or edit the build pipeline for this YAML file, define the variable on the Variables tab. See https://go.microsoft.com/fwlink/?linkid=865972
+#Your build pipeline references an undefined variable named ‘Parameters.ArtifactName’. Create or edit the build pipeline for this YAML file, define the variable on the Variables tab. See https://go.microsoft.com/fwlink/?linkid=865972
+
+steps:
+- task: NuGetToolInstaller@0
+  displayName: 'Use NuGet 4.4.1'
+  inputs:
+    versionSpec: 4.4.1
+
+- task: NuGetCommand@2
+  displayName: 'NuGet restore'
+  inputs:
+    restoreSolution: AweCsomeBuffer.sln
+
+- task: VSBuild@1
+  displayName: 'Build solution AweCsomeBuffer.sln'
+  inputs:
+    solution: AweCsomeBuffer.sln
+    vsVersion: 15.0
+    msbuildArgs: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation=D:\a\1\s\packages'
+    platform: '$(BuildPlatform)'
+    configuration: '$(BuildConfiguration)'
+    clean: true
+
+- task: CopyFiles@2
+  displayName: 'Copy Files to: $(Build.ArtifactStagingDirectory)'
+  inputs:
+    SourceFolder: '$(Build.SourcesDirectory)'
+    Contents: '**\bin\$(BuildConfiguration)\**'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish Artifact'
+  inputs:
+    PathtoPublish: '$(build.artifactstagingdirectory)'
+    ArtifactName: '$(Parameters.ArtifactName)'
+
+- task: kherzog.AssemblyInfoReader.assembly-info-reader-build-task.AssembyInfoReader@1
+  displayName: 'Generate variables AweCsome.Buffer/Properties/AssemblyInfo.cs '
+  inputs:
+    searchPattern: AweCsome.Buffer/Properties/AssemblyInfo.cs
+    variablesPrefix: debug.
+
+- task: NuGetCommand@2
+  displayName: 'NuGet pack'
+  inputs:
+    command: pack
+    packagesToPack: AweCsome.Buffer/AweCsome.Buffer.nuspec
+    versioningScheme: byEnvVar
+    versionEnvVar: BuildVersion
+    includeSymbols: true
+    toolPackage: true
+    buildProperties: '-Symbols'
+
+- task: NuGetCommand@2
+  displayName: 'NuGet push intern'
+  inputs:
+    command: push
+    publishVstsFeed: 'ad45623f-59e4-432c-bf2e-c94f0405153d'
+
+- task: NuGetCommand@2
+  displayName: 'NuGet push NuGet'
+  inputs:
+    command: push
+    nuGetFeedType: external
+    publishFeedCredentials: nuget
+
