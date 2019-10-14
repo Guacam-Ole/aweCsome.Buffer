@@ -39,11 +39,44 @@ namespace AweCsome.Buffer
             RegisterMappers();
         }
 
+        private string SerializePair<T, U>(KeyValuePair<T, U> pair)
+        {
+            return $"{pair.Key}[-]{pair.Value}";
+        }
+
+        private KeyValuePair<T, U> DeserializePair<T, U>(string serialized)
+        {
+            var splitted = serialized.Split(new string[] { "[-]" }, StringSplitOptions.None);
+            T key = (T)Convert.ChangeType(splitted[0], typeof(T));
+            U value = (U)Convert.ChangeType(splitted[1], typeof(U));
+            return new KeyValuePair<T, U>(key, value);
+        }
+
+        private string SerializeList<T, U>(List<KeyValuePair<T, U>> list)
+        {
+            return string.Join("~\n", list.Select(q => SerializePair(q)));
+        }
+
+        private List<KeyValuePair<T, U>> DeserializeList<T, U>(string serialized)
+        {
+            var list = new List<KeyValuePair<T, U>>();
+            var elements = serialized.Split(new string[] { "~\n" }, StringSplitOptions.None);
+            foreach (string element in elements)
+            {
+                list.Add(DeserializePair<T, U>(element));
+            }
+            return list;
+        }
+
         private void RegisterMappers()
         {
-            BsonMapper.Global.RegisterType<KeyValuePair<int, string>>(
-                serialize: (pair) => $"{pair.Key}[-]{pair.Value}",
-                deserialize: (bson) => new KeyValuePair<int, string>(int.Parse(bson.AsString.Split(new string[] { "[-]" }, StringSplitOptions.None)[0]), bson.AsString.Split(new string[] { "[-]" }, StringSplitOptions.None)[1])
+            BsonMapper.Global.RegisterType(
+                serialize: (pair) => SerializePair(pair),
+                deserialize: (bson) => DeserializePair<int, string>(bson.AsString)
+                );
+            BsonMapper.Global.RegisterType(
+                serialize: (list) => SerializeList(list),
+                deserialize: (bson) => DeserializeList<DateTime, string>(bson.AsString)
                 );
         }
 
