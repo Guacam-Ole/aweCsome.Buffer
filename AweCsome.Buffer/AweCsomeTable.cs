@@ -318,12 +318,12 @@ namespace AweCsome.Buffer
             return spFile;
         }
 
-        public List<string> GetLocalFiles<T>(int id)
+        public List<KeyValuePair<DateTime, string>> GetLocalFiles<T>(int id)
         {
             return _db.GetAttachmentNamesFromItem<T>(id);
         }
 
-        public List<string> SelectFileNamesFromItem<T>(int id)
+        public List<KeyValuePair<DateTime,string>> SelectFileNamesFromItem<T>(int id)
         {
             var localFiles = GetLocalFiles<T>(id);
             var remoteFiles = _baseTable.SelectFileNamesFromItem<T>(id);

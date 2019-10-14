@@ -116,15 +116,15 @@ namespace AweCsome.Buffer
             existingFile.Metadata = GetMetadataFromAttachment(newMeta);
         }
 
-        public List<string> GetAttachmentNamesFromItem<T>(int id)
+        public List<KeyValuePair<DateTime, string>> GetAttachmentNamesFromItem<T>(int id)
         {
-            var matches = new List<string>();
+            var matches = new List<KeyValuePair<DateTime, string>>();
             string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.Attachment, ParentId = id, Listname = _helpers.GetListName<T>() }, true);
             var files = _database.FileStorage.Find(prefix);
             if (matches == null) return null;
             foreach (var file in files)
             {
-                if (GetMetadataFromAttachment(file.Metadata).ParentId == id) matches.Add(file.Filename);
+                if (GetMetadataFromAttachment(file.Metadata).ParentId == id) matches.Add(new KeyValuePair<DateTime, string>(file.UploadDate, file.Filename));
             }
             return matches;
         }
@@ -426,14 +426,14 @@ namespace AweCsome.Buffer
                 .GetGenericMethodDefinition();
         }
 
-        public void ReadAllLists(Type baseType, string forbiddenNamespace=null)
+        public void ReadAllLists(Type baseType, string forbiddenNamespace = null)
         {
             foreach (var type in baseType.Assembly.GetTypes())
             {
                 var constructor = type.GetConstructor(Type.EmptyTypes);
                 if (constructor == null)
                     continue;
-                if (forbiddenNamespace!=null && type.Namespace.Contains(forbiddenNamespace)) continue;
+                if (forbiddenNamespace != null && type.Namespace.Contains(forbiddenNamespace)) continue;
                 MethodInfo method = GetMethod<LiteDbQueue>(q => q.ReadAllFromList<object>());
                 CallGenericMethod(this, method, type, null);
             }

@@ -21,7 +21,7 @@ namespace AweCsome.Buffer.Interfaces
         IEnumerable<string> GetCollectionNames();
         Dictionary<string, Stream> GetAttachmentsFromItem<T>(int id);
         List<string> GetFilenamesFromLibrary<T>(string folder);
-        List<string> GetAttachmentNamesFromItem<T>(int id);
+        List<KeyValuePair<DateTime, string>>  GetAttachmentNamesFromItem<T>(int id);
         void RemoveAttachment(BufferFileMeta meta);
         LiteCollection<BsonDocument> GetCollection(string name);
         void DeleteTable(string name);
