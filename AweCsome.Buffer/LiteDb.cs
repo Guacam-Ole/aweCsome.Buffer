@@ -46,15 +46,31 @@ namespace AweCsome.Buffer
 
         private string SerializePair<T, U>(KeyValuePair<T, U> pair)
         {
-            return $"{pair.Key}[-]{pair.Value}";
+            try
+            {
+                return $"{pair.Key}[-]{pair.Value}";
+            }
+            catch (Exception)
+            {
+                _log.Error("Cannot serialize pair");
+                throw;
+            }
         }
 
         private KeyValuePair<T, U> DeserializePair<T, U>(string serialized)
         {
-            var splitted = serialized.Split(new string[] { "[-]" }, StringSplitOptions.None);
-            T key = (T)Convert.ChangeType(splitted[0], typeof(T));
-            U value = (U)Convert.ChangeType(splitted[1], typeof(U));
-            return new KeyValuePair<T, U>(key, value);
+            try
+            {
+                var splitted = serialized.Split(new string[] { "[-]" }, StringSplitOptions.None);
+                T key = (T)Convert.ChangeType(splitted[0], typeof(T));
+                U value = (U)Convert.ChangeType(splitted[1], typeof(U));
+                return new KeyValuePair<T, U>(key, value);
+            }
+            catch (Exception)
+            {
+                _log.Error($"Cannot deserialize pair '{serialized}'");
+                throw;
+            }
         }
 
         private string SerializeList<T, U>(List<KeyValuePair<T, U>> list)
@@ -65,9 +81,10 @@ namespace AweCsome.Buffer
         private List<KeyValuePair<T, U>> DeserializeList<T, U>(string serialized)
         {
             var list = new List<KeyValuePair<T, U>>();
-            var elements = serialized.Split(new string[] { "~\n" }, StringSplitOptions.None);
+            var elements = serialized.Split(new string[] { "~\n" }, StringSplitOptions.RemoveEmptyEntries);
             foreach (string element in elements)
             {
+
                 list.Add(DeserializePair<T, U>(element));
             }
             return list;
