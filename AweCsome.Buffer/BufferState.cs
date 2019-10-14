@@ -27,6 +27,5 @@ namespace AweCsome.Buffer
             var existingTable = TableBuffers.FirstOrDefault(q => q.Name == tableName);
             if (existingTable != null) TableBuffers.Remove(existingTable);
         }
-
     }
 }
