@@ -254,6 +254,7 @@ namespace AweCsome.Buffer
                     {
                         foreach (var lookupProperty in lookupProperties)
                         {
+                            if (element[lookupProperty.Name] == null) continue;
                             var targetType = element[lookupProperty.Name].GetType();
                             if (element[lookupProperty.Name] is LiteDB.BsonDocument)
                             {
