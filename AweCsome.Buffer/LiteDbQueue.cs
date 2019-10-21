@@ -127,7 +127,9 @@ namespace AweCsome.Buffer
         private void UpdateFileLookups(Type baseType, string changedListname, int oldId, int newId)
         {
             var db = new LiteDb(_helpers, _aweCsomeTable, _connectionString);
-            foreach (var file in db.GetAllFiles())
+            var allFiles = db.GetAllFiles();
+            if (allFiles == null) return;
+            foreach (var file in allFiles)
             {
                 var meta = db.GetMetadataFromAttachment(file.Metadata);
                 if (meta.AttachmentType == BufferFileMeta.AttachmentTypes.Attachment)
