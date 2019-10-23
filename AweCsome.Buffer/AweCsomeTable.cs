@@ -3,8 +3,11 @@ using AweCsome.Buffer.Entities;
 using AweCsome.Buffer.Interfaces;
 using AweCsome.Entities;
 using AweCsome.Interfaces;
+
 using log4net;
+
 using Newtonsoft.Json;
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -20,9 +23,7 @@ namespace AweCsome.Buffer
         private IAweCsomeHelpers _helpers;
         private LiteDb _db;
         public ILiteDbQueue Queue { get; }
-        Dictionary<Guid, DateTime> _measurements = new Dictionary<Guid, DateTime>();
-
-
+        private Dictionary<Guid, DateTime> _measurements = new Dictionary<Guid, DateTime>();
 
         private Guid StartMeasurement()
         {
@@ -31,7 +32,7 @@ namespace AweCsome.Buffer
             return guid;
         }
 
-        private void StopMeasurement(Guid guid, string message=null)
+        private void StopMeasurement(Guid guid, string message = null)
         {
             if (!_measurements.ContainsKey(guid)) return;
             var started = _measurements[guid];
@@ -39,7 +40,6 @@ namespace AweCsome.Buffer
             _log.Debug($"[MEASUREMENT] Total seconds: {totalSeconds} '{message}'");
             _measurements.Remove(guid);
         }
-
 
         public AweCsomeTable(IAweCsomeTable baseTable, IAweCsomeHelpers helpers, string connectionString)
         {
@@ -59,7 +59,7 @@ namespace AweCsome.Buffer
         public string AddFolderToLibrary<T>(string folder)
         {
             var guid = StartMeasurement();
-            var result= _baseTable.AddFolderToLibrary<T>(folder);   // NOT buffered
+            var result = _baseTable.AddFolderToLibrary<T>(folder);   // NOT buffered
             StopMeasurement(guid, "AddFolderToLinbrary (SharePoint)");
             return result;
         }
@@ -106,8 +106,6 @@ namespace AweCsome.Buffer
                 AdditionalInformation = JsonConvert.SerializeObject(entity, Formatting.Indented)
             }, filestream);
 
-
-
             Queue.AddCommand<T>(new Command
             {
                 Action = Command.Actions.AttachFileToLibrary,
@@ -122,7 +120,7 @@ namespace AweCsome.Buffer
         public int CountItems<T>()
         {
             var guid = StartMeasurement();
-            var result= _db.GetCollection<T>().Count();
+            var result = _db.GetCollection<T>().Count();
             StopMeasurement(guid, "CountItems (LiteDB)");
             return result;
         }
@@ -130,7 +128,7 @@ namespace AweCsome.Buffer
         public int CountItemsByFieldValue<T>(string fieldname, object value) where T : new()
         {
             var guid = StartMeasurement();
-            var result= SelectItemsByFieldValue<T>(fieldname, value).Count();
+            var result = SelectItemsByFieldValue<T>(fieldname, value).Count();
             StopMeasurement(guid, "CountItemsByFieldValue (LiteDB)");
             return result;
         }
@@ -295,7 +293,7 @@ namespace AweCsome.Buffer
         public string[] GetAvailableChoicesFromField<T>(string propertyname)
         {
             var guid = StartMeasurement();
-            var result= _baseTable.GetAvailableChoicesFromField<T>(propertyname); // unbuffered
+            var result = _baseTable.GetAvailableChoicesFromField<T>(propertyname); // unbuffered
             StopMeasurement(guid, "GetAvailableChoices (SharePoint)");
             return result;
         }
@@ -318,11 +316,12 @@ namespace AweCsome.Buffer
         }
 
         private void AutosetCreated<T>(T item)
-        {            
+        {
             AutosetDateTimeField(item, typeof(T).GetProperty(nameof(AweCsomeListItem.Created)));
         }
+
         private void AutosetModified<T>(T item)
-        {            
+        {
             AutosetDateTimeField(item, typeof(T).GetProperty(nameof(AweCsomeListItem.Modified)));
         }
 
@@ -363,13 +362,13 @@ namespace AweCsome.Buffer
                 Parameters = new Dictionary<string, object> { { "User", userId } }
             });
             StopMeasurement(guid, "Like (LiteDB)");
-            return item;            
+            return item;
         }
 
         public List<T> SelectAllItems<T>() where T : new()
         {
             var guid = StartMeasurement();
-            var result= _db.GetCollection<T>().FindAll().ToList();
+            var result = _db.GetCollection<T>().FindAll().ToList();
             StopMeasurement(guid, "SelectAllItems (LiteDB)");
             return result;
         }
@@ -391,12 +390,12 @@ namespace AweCsome.Buffer
         public List<KeyValuePair<DateTime, string>> GetLocalFiles<T>(int id)
         {
             var guid = StartMeasurement();
-            var result= _db.GetAttachmentNamesFromItem<T>(id);
+            var result = _db.GetAttachmentNamesFromItem<T>(id);
             StopMeasurement(guid, "GetLocalFiles (LiteDB)");
             return result;
         }
 
-        public List<KeyValuePair<DateTime,string>> SelectFileNamesFromItem<T>(int id)
+        public List<KeyValuePair<DateTime, string>> SelectFileNamesFromItem<T>(int id)
         {
             var guid = StartMeasurement();
             var localFiles = GetLocalFiles<T>(id);
@@ -478,7 +477,7 @@ namespace AweCsome.Buffer
                 if (property.PropertyType.IsClass)
                 {
                     var idProperty = property.PropertyType.GetProperty("Id");
-                    if (idProperty!=null)
+                    if (idProperty != null)
                     {
                         var id = idProperty.GetValue(propertyValue);
                         if (id.Equals(value)) matches.Add(item);
@@ -523,7 +522,6 @@ namespace AweCsome.Buffer
             var collection = _db.GetCollection<T>();
             if (collection.Count() == 0) return new List<T>();
             var allItems = collection.FindAll();
-
 
             foreach (var item in allItems)
             {
@@ -574,7 +572,7 @@ namespace AweCsome.Buffer
             GetLikeData(item, out int likesCount, out Dictionary<int, string> likedBy);
             if (!likedBy.ContainsKey(userId))
             {
-                // didn't like 
+                // didn't like
                 return default(T);
             }
 
@@ -641,13 +639,12 @@ namespace AweCsome.Buffer
         public bool Exists<T>()
         {
             var guid = StartMeasurement();
-            var result= _db.GetCollectionNames().Contains(typeof(T).Name);
+            var result = _db.GetCollectionNames().Contains(typeof(T).Name);
             StopMeasurement(guid, "Exists (LiteDB)");
             return result;
-
         }
 
-        public void ReadAllLists(Type baseType, string forbiddenNamespace=null)
+        public void ReadAllLists(Type baseType, string forbiddenNamespace = null)
         {
             var guid = StartMeasurement();
             _db.ReadAllLists(baseType, forbiddenNamespace);
