@@ -37,7 +37,7 @@ namespace AweCsome.Buffer
             if (!_measurements.ContainsKey(guid)) return;
             var started = _measurements[guid];
             var totalSeconds = DateTime.Now.Subtract(started).TotalSeconds;
-            _log.Debug($"[MEASUREMENT] Total seconds: {totalSeconds} '{message}'");
+            if (totalSeconds > 1) _log.Debug($"[MEASUREMENT] Total seconds: {totalSeconds} '{message}'");
             _measurements.Remove(guid);
         }
 
