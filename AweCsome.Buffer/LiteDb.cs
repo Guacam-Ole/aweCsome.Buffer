@@ -191,10 +191,10 @@ namespace AweCsome.Buffer
 
         public void EmptyStorage()
         {
-            foreach (var itemId in GetStorage().FindAll().Select(q => q.Id).ToList())
-            {
-                GetStorage().Delete(itemId);
-            }
+            var storageids = GetStorage()?.FindAll()?.Select(q => q.Id)?.ToList();
+            if (storageids == null) return;
+
+            foreach (var itemId in storageids) GetStorage().Delete(itemId);
         }
 
         public void RemoveAttachment(BufferFileMeta meta)
