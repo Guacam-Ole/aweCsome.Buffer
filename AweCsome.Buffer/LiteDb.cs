@@ -35,7 +35,7 @@ namespace AweCsome.Buffer
         protected IAweCsomeTable _aweCsomeTable;
         private bool _queue;
 
-        private LiteDatabase GetDatabase()
+        public LiteDatabase GetDatabase()
         {
             return GetDatabase(_connectionString, _queue);
         }
@@ -255,12 +255,9 @@ namespace AweCsome.Buffer
             }
         }
 
-        public void UpdateMetadata(string id, BsonDocument metadata)
+        public void UpdateMetadata(LiteDatabase database, string id, BsonDocument metadata)
         {
-            using (var database = GetDatabase())
-            {
-                database.FileStorage.SetMetadata(id, metadata);
-            }
+            database.FileStorage.SetMetadata(id, metadata);
         }
 
         public Dictionary<string, Stream> GetAttachmentsFromItem<T>(int id)
@@ -295,12 +292,9 @@ namespace AweCsome.Buffer
             }
         }
 
-        public IEnumerable<LiteFileInfo> GetAllFiles()
+        public IEnumerable<LiteFileInfo> GetAllFiles(LiteDatabase database)
         {
-            using (var database = GetDatabase())
-            {
-                return database.FileStorage.FindAll();
-            }
+            return database.FileStorage.FindAll();
         }
 
         public List<AweCsomeLibraryFile> GetFilesFromDocLib<T>(string folder, bool retrieveContent = true) where T : new()

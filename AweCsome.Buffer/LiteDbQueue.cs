@@ -127,62 +127,65 @@ namespace AweCsome.Buffer
         private void UpdateFileLookups(Type baseType, string changedListname, int oldId, int newId)
         {
             var db = new LiteDb(_helpers, _aweCsomeTable, _connectionString);
-            var allFiles = db.GetAllFiles();
-            if (allFiles == null) return;
-            foreach (var file in allFiles)
+            using (var database = db.GetDatabase())
             {
-                var meta = db.GetMetadataFromAttachment(file.Metadata);
-                if (meta.AttachmentType == BufferFileMeta.AttachmentTypes.Attachment)
+                var allFiles = db.GetAllFiles(database);
+                if (allFiles == null) return;
+                foreach (var file in allFiles)
                 {
-                    if (meta.Listname == changedListname && meta.ParentId == oldId)
+                    var meta = db.GetMetadataFromAttachment(file.Metadata);
+                    if (meta.AttachmentType == BufferFileMeta.AttachmentTypes.Attachment)
                     {
-                        meta.ParentId = newId;
-                        db.UpdateMetadata(file.Id, db.GetMetadataFromAttachment(meta));
-                    }
-                }
-                else
-                {
-                    if (meta.AdditionalInformation != null)
-                    {
-                        Type targetType = baseType.Assembly.GetTypes().FirstOrDefault(q => q.FullName == meta.FullyQualifiedName);
-                        if (targetType == null) continue;
-                        var entity = JsonConvert.DeserializeObject(meta.AdditionalInformation, targetType);
-                        if (FindLookupProperties(targetType, changedListname, out List<PropertyInfo> lookupProperties, out List<PropertyInfo> virtualStaticProperties, out List<PropertyInfo> virtualDynamicProperties))
+                        if (meta.Listname == changedListname && meta.ParentId == oldId)
                         {
-                            bool elementChanged = false;
-                            foreach (var lookupProperty in lookupProperties)
+                            meta.ParentId = newId;
+                            db.UpdateMetadata(database, file.Id, db.GetMetadataFromAttachment(meta));
+                        }
+                    }
+                    else
+                    {
+                        if (meta.AdditionalInformation != null)
+                        {
+                            Type targetType = baseType.Assembly.GetTypes().FirstOrDefault(q => q.FullName == meta.FullyQualifiedName);
+                            if (targetType == null) continue;
+                            var entity = JsonConvert.DeserializeObject(meta.AdditionalInformation, targetType);
+                            if (FindLookupProperties(targetType, changedListname, out List<PropertyInfo> lookupProperties, out List<PropertyInfo> virtualStaticProperties, out List<PropertyInfo> virtualDynamicProperties))
                             {
-                                if ((int?)lookupProperty.GetValue(entity) == oldId)
+                                bool elementChanged = false;
+                                foreach (var lookupProperty in lookupProperties)
                                 {
-                                    lookupProperty.SetValue(entity, newId);
-                                    elementChanged = true;
-                                }
-                            }
-                            foreach (var virtualStaticPropery in virtualStaticProperties)
-                            {
-                                if ((int?)virtualStaticPropery.GetValue(entity) == oldId)
-                                {
-                                    virtualStaticPropery.SetValue(entity, newId);
-                                    elementChanged = true;
-                                }
-                            }
-                            foreach (var virtualDynamicProperty in virtualDynamicProperties)
-                            {
-                                var attribute = virtualDynamicProperty.GetCustomAttribute<VirtualLookupAttribute>();
-                                var targetList = (string)targetType.GetProperty(attribute.DynamicTargetProperty).GetValue(entity);
-                                if (targetList == changedListname)
-                                {
-                                    if ((int?)virtualDynamicProperty.GetValue(entity) == oldId)
+                                    if ((int?)lookupProperty.GetValue(entity) == oldId)
                                     {
-                                        virtualDynamicProperty.SetValue(entity, newId);
+                                        lookupProperty.SetValue(entity, newId);
                                         elementChanged = true;
                                     }
                                 }
-                            }
-                            if (elementChanged)
-                            {
-                                meta.AdditionalInformation = JsonConvert.SerializeObject(entity, Formatting.Indented);
-                                db.UpdateMetadata(file.Id, db.GetMetadataFromAttachment(meta));
+                                foreach (var virtualStaticPropery in virtualStaticProperties)
+                                {
+                                    if ((int?)virtualStaticPropery.GetValue(entity) == oldId)
+                                    {
+                                        virtualStaticPropery.SetValue(entity, newId);
+                                        elementChanged = true;
+                                    }
+                                }
+                                foreach (var virtualDynamicProperty in virtualDynamicProperties)
+                                {
+                                    var attribute = virtualDynamicProperty.GetCustomAttribute<VirtualLookupAttribute>();
+                                    var targetList = (string)targetType.GetProperty(attribute.DynamicTargetProperty).GetValue(entity);
+                                    if (targetList == changedListname)
+                                    {
+                                        if ((int?)virtualDynamicProperty.GetValue(entity) == oldId)
+                                        {
+                                            virtualDynamicProperty.SetValue(entity, newId);
+                                            elementChanged = true;
+                                        }
+                                    }
+                                }
+                                if (elementChanged)
+                                {
+                                    meta.AdditionalInformation = JsonConvert.SerializeObject(entity, Formatting.Indented);
+                                    db.UpdateMetadata(database, file.Id, db.GetMetadataFromAttachment(meta));
+                                }
                             }
                         }
                     }
@@ -258,7 +261,7 @@ namespace AweCsome.Buffer
                         {
                             if (element[lookupProperty.Name] == null) continue;
                             var targetType = element[lookupProperty.Name].GetType();
-                            if (element[lookupProperty.Name] is LiteDB.BsonDocument)
+                            if (targetType == typeof(LiteDB.BsonDocument))
                             {
                                 var bson = (LiteDB.BsonDocument)element[lookupProperty.Name];
                                 var id = bson["_id"];
@@ -269,29 +272,43 @@ namespace AweCsome.Buffer
                                     elementChanged = true;
                                 }
                             }
-                            else if (targetType.IsClass)
+                            else
                             {
-                                var idProperty = targetType.GetProperty("Id");
-                                if (idProperty == null)
+                                bool isId = false;
+                                int? tmpId = null;
+                                try
                                 {
-                                    _log.Warn($"Unexpected LookupType. TargetType: {targetType.FullName}, lookupProperty: {lookupProperty.Name}");
+                                    tmpId = (int?)element[lookupProperty.Name];
+                                    isId = true;
                                 }
-                                else
+                                catch (Exception ex)
                                 {
-                                    var id = idProperty.GetValue(element[lookupProperty.Name]);
-                                    if (id.Equals(oldId))
+                                    _log.Warn("Cannot cast as int. List to check: {subType.Name} TargetType: {targetType.FullName}, lookupProperty: {lookupProperty.Name}"); 
+                                }
+                                if (isId)
+                                {
+                                    if (tmpId == oldId)
                                     {
-                                        idProperty.SetValue(element[lookupProperty.Name], newId);
+                                        element[lookupProperty.Name] = newId;
                                         elementChanged = true;
                                     }
                                 }
-                            }
-                            else
-                            {
-                                if ((int?)element[lookupProperty.Name] == oldId)
+                                else
                                 {
-                                    element[lookupProperty.Name] = newId;
-                                    elementChanged = true;
+                                    var idProperty = targetType.GetProperty("Id");
+                                    if (idProperty == null)
+                                    {
+                                        _log.Warn($"Unexpected LookupType. List to check: {subType.Name} TargetType: {targetType.FullName}, lookupProperty: {lookupProperty.Name}");
+                                    }
+                                    else
+                                    {
+                                        var id = idProperty.GetValue(element[lookupProperty.Name]);
+                                        if (id.Equals(oldId))
+                                        {
+                                            idProperty.SetValue(element[lookupProperty.Name], newId);
+                                            elementChanged = true;
+                                        }
+                                    }
                                 }
                             }
                         }
