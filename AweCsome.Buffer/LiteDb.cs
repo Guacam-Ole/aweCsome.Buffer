@@ -459,15 +459,18 @@ namespace AweCsome.Buffer
                 string dbModeSetting = ConfigurationManager.AppSettings["DbMode"];
                 _dbMode = dbModeSetting == null ? DbModes.File : DbModes.Memory;
             }
-            lock (_dbLock)
+            //lock (_dbLock)
             {
+                _log.Debug($"Retrieving Database for '{connectionString}' ");
                 if (_dbMode == DbModes.Memory)
                 {
                     var oldDb = _memoryDb.FirstOrDefault(q => q.Filename == connectionString);
                     if (oldDb == null) _memoryDb.Add(new MemoryDatabase { Filename = connectionString, IsQueue = isQueue, Database = new LiteDatabase(new MemoryStream()) });
                     return _memoryDb.First(q => q.Filename == connectionString).Database;
                 }
-                return new LiteDatabase(connectionString);
+                var database= new LiteDatabase(connectionString);
+                _log.Debug("Database retrieved");
+                return database;
             }
         }
 
