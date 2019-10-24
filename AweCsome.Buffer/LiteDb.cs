@@ -454,13 +454,16 @@ namespace AweCsome.Buffer
 
         private LiteDatabase GetDatabase(string connectionString, bool isQueue)
         {
-            if (_dbMode == DbModes.Undefined)
+            LiteDatabase database = null;
+            try
             {
-                string dbModeSetting = ConfigurationManager.AppSettings["DbMode"];
-                _dbMode = dbModeSetting == null ? DbModes.File : DbModes.Memory;
-            }
-            //lock (_dbLock)
-            {
+                if (_dbMode == DbModes.Undefined)
+                {
+                    string dbModeSetting = ConfigurationManager.AppSettings["DbMode"];
+                    _dbMode = dbModeSetting == null ? DbModes.File : DbModes.Memory;
+                }
+                //lock (_dbLock)
+
                 _log.Debug($"Retrieving Database for '{connectionString}' ");
                 if (_dbMode == DbModes.Memory)
                 {
@@ -468,10 +471,16 @@ namespace AweCsome.Buffer
                     if (oldDb == null) _memoryDb.Add(new MemoryDatabase { Filename = connectionString, IsQueue = isQueue, Database = new LiteDatabase(new MemoryStream()) });
                     return _memoryDb.First(q => q.Filename == connectionString).Database;
                 }
-                var database= new LiteDatabase(connectionString);
+                database = new LiteDatabase(connectionString);
                 _log.Debug("Database retrieved");
-                return database;
             }
+            catch (Exception ex)
+            {
+                _log.Error("Error retrieving Database", ex);
+                throw;
+            }
+            return database;
+
         }
 
         public object CallGenericMethodByName(object baseObject, MethodInfo method, Type baseType, string fullyQualifiedName, object[] parameters)
