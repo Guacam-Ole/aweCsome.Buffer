@@ -283,7 +283,7 @@ namespace AweCsome.Buffer
                                 }
                                 catch (Exception ex)
                                 {
-                                    _log.Warn("Cannot cast as int. List to check: {subType.Name} TargetType: {targetType.FullName}, lookupProperty: {lookupProperty.Name}"); 
+                                    _log.Warn($"Cannot cast as int. List to check: {subType.Name} TargetType: {targetType.FullName}, lookupProperty: {lookupProperty.Name}"); 
                                 }
                                 if (isId)
                                 {
