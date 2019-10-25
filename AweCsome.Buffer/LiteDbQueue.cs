@@ -20,6 +20,8 @@ namespace AweCsome.Buffer
         private static readonly object _queueLock = new object();
         private readonly ILog _log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
         public Exception LastException { get; set; }
+        
+
 
         public LiteDbQueue(IAweCsomeHelpers helpers, IAweCsomeTable aweCsomeTable, string connectionString) : base(helpers, aweCsomeTable, connectionString, true)
         {

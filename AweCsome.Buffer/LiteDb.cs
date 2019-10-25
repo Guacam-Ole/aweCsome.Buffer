@@ -34,10 +34,12 @@ namespace AweCsome.Buffer
         protected string _connectionString;
         protected IAweCsomeTable _aweCsomeTable;
         private bool _queue;
+        private LiteDatabase _db = null;
 
         public LiteDatabase GetDatabase()
         {
-            return GetDatabase(_connectionString, _queue);
+            if (_db==null) _db= GetDatabase(_connectionString, _queue);
+            return _db;
         }
 
         public LiteDb(IAweCsomeHelpers helpers, IAweCsomeTable aweCsomeTable, string connectionString, bool queue = false)
@@ -464,7 +466,7 @@ namespace AweCsome.Buffer
                 }
                 //lock (_dbLock)
 
-                _log.Debug($"Retrieving Database for '{connectionString}' ");
+              //  _log.Debug($"Retrieving Database for '{connectionString}' ");
                 if (_dbMode == DbModes.Memory)
                 {
                     var oldDb = _memoryDb.FirstOrDefault(q => q.Filename == connectionString);
@@ -472,7 +474,7 @@ namespace AweCsome.Buffer
                     return _memoryDb.First(q => q.Filename == connectionString).Database;
                 }
                 database = new LiteDatabase(connectionString);
-                _log.Debug("Database retrieved");
+              //  _log.Debug("Database retrieved");
             }
             catch (Exception ex)
             {
