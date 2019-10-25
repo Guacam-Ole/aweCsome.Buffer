@@ -36,8 +36,9 @@ namespace AweCsome.Buffer
         private bool _queue;
         private LiteDatabase _db = null;
 
-        public LiteDatabase GetDatabase()
+        public LiteDatabase GetDatabase(bool useLocal=false)
         {
+            if (useLocal) return GetDatabase(_connectionString, _queue);
             if (_db==null) _db= GetDatabase(_connectionString, _queue);
             return _db;
         }
@@ -166,10 +167,10 @@ namespace AweCsome.Buffer
             }
         }
 
-        protected LiteCollection<T> GetCollection<T>(string name)
+        protected LiteCollection<T> GetCollection<T>(string name, bool useLocal=false)
         {
             name = name ?? typeof(T).Name;
-            using (var database = GetDatabase())
+            using (var database = GetDatabase(useLocal))
             {
                 return database.GetCollection<T>(name);
             }

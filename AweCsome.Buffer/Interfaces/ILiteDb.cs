@@ -17,7 +17,7 @@ namespace AweCsome.Buffer.Interfaces
         List<AweCsomeLibraryFile> GetFilesFromDocLib<T>(string folder, bool retrieveData=true) where T : new();
         string AddAttachment(BufferFileMeta meta, Stream fileStream);
         int Insert<T>(T item, string listname);
-        LiteDB.LiteCollection<T> GetCollection<T>();
+        LiteDB.LiteCollection<T> GetCollection<T>( );
         IEnumerable<string> GetCollectionNames();
         Dictionary<string, Stream> GetAttachmentsFromItem<T>(int id);
         List<string> GetFilenamesFromLibrary<T>(string folder);
@@ -31,6 +31,6 @@ namespace AweCsome.Buffer.Interfaces
         object CallGenericMethodByName(object baseObject, MethodInfo method, Type baseType, string fullyQualifiedName, object[] parameters);
         object CallGenericMethod(object baseObject, MethodInfo method, Type entityType, object[] parameters);
         void EmptyStorage();
-        LiteDatabase GetDatabase();
+        LiteDatabase GetDatabase(bool useLocal = false);
     }
 }

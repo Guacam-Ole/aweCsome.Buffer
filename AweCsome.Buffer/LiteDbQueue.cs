@@ -50,17 +50,17 @@ namespace AweCsome.Buffer
             }
         }
 
-        public List<Command> Read()
+        public List<Command> Read(bool useLocal=false)
         {
             return GetCollection<Command>(null).FindAll().OrderBy(q => q.Created).ToList();
         }
 
-        public void Update(Command command)
+        public void Update(Command command, bool useLocal=false)
         {
             GetCollection<Command>(null).Update(command);
         }
 
-        public void Delete(Command command)
+        public void Delete(Command command, bool useLocal=false)
         {
             GetCollection<Command>().Delete(command.Id);
         }
