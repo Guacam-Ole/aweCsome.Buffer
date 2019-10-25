@@ -52,7 +52,7 @@ namespace AweCsome.Buffer
 
         public List<Command> Read(bool useLocal=false)
         {
-            return GetCollection<Command>(null).FindAll().OrderBy(q => q.Created).ToList();
+            return GetCollection<Command>(null)?.FindAll()?.OrderBy(q => q.Created)?.ToList() ?? new List<Command>();
         }
 
         public void Update(Command command, bool useLocal=false)
@@ -129,9 +129,7 @@ namespace AweCsome.Buffer
         private void UpdateFileLookups(Type baseType, string changedListname, int oldId, int newId)
         {
             var db = new LiteDb(_helpers, _aweCsomeTable, _connectionString);
-            using (var database = db.GetDatabase())
-            {
-                var allFiles = db.GetAllFiles(database);
+                var allFiles = db.GetAllFiles();
                 if (allFiles == null) return;
                 foreach (var file in allFiles)
                 {
@@ -141,7 +139,7 @@ namespace AweCsome.Buffer
                         if (meta.Listname == changedListname && meta.ParentId == oldId)
                         {
                             meta.ParentId = newId;
-                            db.UpdateMetadata(database, file.Id, db.GetMetadataFromAttachment(meta));
+                            db.UpdateMetadata( file.Id, db.GetMetadataFromAttachment(meta));
                         }
                     }
                     else
@@ -186,12 +184,11 @@ namespace AweCsome.Buffer
                                 if (elementChanged)
                                 {
                                     meta.AdditionalInformation = JsonConvert.SerializeObject(entity, Formatting.Indented);
-                                    db.UpdateMetadata(database, file.Id, db.GetMetadataFromAttachment(meta));
+                                    db.UpdateMetadata( file.Id, db.GetMetadataFromAttachment(meta));
                                 }
                             }
                         }
                     }
-                }
             }
         }
 

@@ -33,23 +33,17 @@ namespace AweCsome.Buffer
         protected IAweCsomeHelpers _helpers;
         protected string _connectionString;
         protected IAweCsomeTable _aweCsomeTable;
-        private bool _queue;
-        private LiteDatabase _db = null;
+        private LiteDatabase _database;
 
-        public LiteDatabase GetDatabase(bool useLocal=false)
-        {
-            if (useLocal) return GetDatabase(_connectionString, _queue);
-            if (_db==null) _db= GetDatabase(_connectionString, _queue);
-            return _db;
-        }
+   
 
         public LiteDb(IAweCsomeHelpers helpers, IAweCsomeTable aweCsomeTable, string connectionString, bool queue = false)
         {
             _connectionString = connectionString;
-            _queue = queue;
             _aweCsomeTable = aweCsomeTable;
             _helpers = helpers;
             RegisterMappers();
+            _database = GetDatabase(connectionString, queue);
         }
 
         private string SerializePair<T, U>(KeyValuePair<T, U> pair)
@@ -138,10 +132,7 @@ namespace AweCsome.Buffer
 
         public void DeleteTable(string name)
         {
-            using (var database = GetDatabase())
-            {
-                database.DropCollection(name);
-            }
+                _database.DropCollection(name);
         }
 
         private string CleanUpLiteDbId(string dirtyName)
@@ -161,35 +152,23 @@ namespace AweCsome.Buffer
         protected void DropCollection<T>(string name)
         {
             name = name ?? typeof(T).Name;
-            using (var database = GetDatabase())
-            {
-                database.DropCollection(name);
-            }
+                _database.DropCollection(name);
         }
 
         protected LiteCollection<T> GetCollection<T>(string name, bool useLocal=false)
         {
             name = name ?? typeof(T).Name;
-            using (var database = GetDatabase(useLocal))
-            {
-                return database.GetCollection<T>(name);
-            }
+                return _database.GetCollection<T>(name);
         }
 
         public LiteCollection<BsonDocument> GetCollection(string name)
         {
-            using (var database = GetDatabase())
-            {
-                return database.GetCollection(name);
-            }
+                return _database.GetCollection(name);
         }
 
         private LiteStorage GetStorage()
         {
-            using (var database = GetDatabase())
-            {
-                return database.FileStorage;
-            }
+                return _database.FileStorage;
         }
 
         public void EmptyStorage()
@@ -202,74 +181,60 @@ namespace AweCsome.Buffer
 
         public void RemoveAttachment(BufferFileMeta meta)
         {
-            using (var database = GetDatabase())
-            {
-                var existingFile = database.FileStorage.Find(GetStringIdFromFilename(meta, true)).FirstOrDefault(q => q.Filename == meta.Filename);
+                var existingFile = _database.FileStorage.Find(GetStringIdFromFilename(meta, true)).FirstOrDefault(q => q.Filename == meta.Filename);
                 if (existingFile == null) return;
-                database.FileStorage.Delete(existingFile.Id);
-            }
+                _database.FileStorage.Delete(existingFile.Id);
         }
 
         public void UpdateFileMeta(BufferFileMeta oldMeta, BufferFileMeta newMeta)
         {
-            using (var database = GetDatabase())
-            {
                 string id = GetStringIdFromFilename(oldMeta);
-                var existingFile = database.FileStorage.Find(id).FirstOrDefault(q => GetMetadataFromAttachment(q.Metadata).ParentId == oldMeta.ParentId);
+                var existingFile = _database.FileStorage.Find(id).FirstOrDefault(q => GetMetadataFromAttachment(q.Metadata).ParentId == oldMeta.ParentId);
                 if (existingFile == null)
                 {
                     _log.Warn($"Cannot change meta for {id}. File cannot be found");
                     return;
                 }
                 existingFile.Metadata = GetMetadataFromAttachment(newMeta);
-            }
         }
 
         public List<KeyValuePair<DateTime, string>> GetAttachmentNamesFromItem<T>(int id)
         {
-            using (var database = GetDatabase())
-            {
                 var matches = new List<KeyValuePair<DateTime, string>>();
                 string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.Attachment, ParentId = id, Listname = _helpers.GetListName<T>() }, true);
-                var files = database.FileStorage.Find(prefix);
+                var files = _database.FileStorage.Find(prefix);
                 if (matches == null) return null;
                 foreach (var file in files)
                 {
                     if (GetMetadataFromAttachment(file.Metadata).ParentId == id) matches.Add(new KeyValuePair<DateTime, string>(file.UploadDate, file.Filename));
                 }
                 return matches;
-            }
         }
 
         public List<string> GetFilenamesFromLibrary<T>(string folder)
         {
-            using (var database = GetDatabase())
-            {
                 var matches = new List<string>();
 
                 string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.DocLib, Folder = folder, Listname = _helpers.GetListName<T>() }, true);
 
-                var files = database.FileStorage.Find(prefix);
+                var files = _database.FileStorage.Find(prefix);
                 foreach (var file in files)
                 {
                     matches.Add(file.Filename);
                 }
                 return matches;
-            }
         }
 
-        public void UpdateMetadata(LiteDatabase database, string id, BsonDocument metadata)
+        public void UpdateMetadata( string id, BsonDocument metadata)
         {
-            database.FileStorage.SetMetadata(id, metadata);
+            _database.FileStorage.SetMetadata(id, metadata);
         }
 
         public Dictionary<string, Stream> GetAttachmentsFromItem<T>(int id)
         {
-            using (var database = GetDatabase())
-            {
                 var matches = new Dictionary<string, Stream>();
                 string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.Attachment, ParentId = id, Listname = _helpers.GetListName<T>() }, true);
-                var files = database.FileStorage.Find(prefix);
+                var files = _database.FileStorage.Find(prefix);
                 if (matches == null) return null;
                 foreach (var file in files)
                 {
@@ -279,36 +244,30 @@ namespace AweCsome.Buffer
                     matches.Add(file.Filename, fileStream);
                 }
                 return matches;
-            }
         }
 
         public MemoryStream GetAttachmentStreamById(string id, out string filename, out BufferFileMeta meta)
         {
-            using (var database = GetDatabase())
-            {
-                var fileInfo = database.FileStorage.FindById(id);
+                var fileInfo = _database.FileStorage.FindById(id);
                 filename = fileInfo.Filename;
                 MemoryStream fileStream = new MemoryStream((int)fileInfo.Length);
                 fileInfo.CopyTo(fileStream);
                 meta = GetMetadataFromAttachment(fileInfo.Metadata);
                 return fileStream;
-            }
         }
 
-        public IEnumerable<LiteFileInfo> GetAllFiles(LiteDatabase database)
+        public IEnumerable<LiteFileInfo> GetAllFiles()
         {
-            return database.FileStorage.FindAll();
+            return _database.FileStorage.FindAll();
         }
 
         public List<AweCsomeLibraryFile> GetFilesFromDocLib<T>(string folder, bool retrieveContent = true) where T : new()
         {
-            using (var database = GetDatabase())
-            {
                 var matches = new List<AweCsomeLibraryFile>();
 
                 string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.DocLib, Folder = folder, Listname = _helpers.GetListName<T>() }, true);
 
-                var files = database.FileStorage.Find(prefix);
+                var files = _database.FileStorage.Find(prefix);
                 foreach (var file in files)
                 {
                     var meta = GetMetadataFromAttachment(file.Metadata);
@@ -329,7 +288,6 @@ namespace AweCsome.Buffer
                     matches.Add(libFile);
                 }
                 return matches;
-            }
         }
 
         public BsonDocument GetMetadataFromAttachment(BufferFileMeta meta)
@@ -375,11 +333,9 @@ namespace AweCsome.Buffer
 
         public string AddAttachment(BufferFileMeta meta, Stream fileStream)
         {
-            using (var database = GetDatabase())
-            {
                 int calculatedIndex = 0;
                 string prefix = GetStringIdFromFilename(meta, true);
-                var existingFiles = database.FileStorage.Find(prefix);
+                var existingFiles = _database.FileStorage.Find(prefix);
                 if (existingFiles.Count() > 0)
                 {
                     calculatedIndex = existingFiles.Min(q => int.Parse(q.Metadata["Id"].AsString ?? "0"));
@@ -387,10 +343,9 @@ namespace AweCsome.Buffer
                 }
                 calculatedIndex--;
                 meta.SetId(calculatedIndex);
-                var uploadedFile = database.FileStorage.Upload(GetStringIdFromFilename(meta), meta.Filename, fileStream);
-                database.FileStorage.SetMetadata(uploadedFile.Id, GetMetadataFromAttachment(meta));
+                var uploadedFile = _database.FileStorage.Upload(GetStringIdFromFilename(meta), meta.Filename, fileStream);
+                _database.FileStorage.SetMetadata(uploadedFile.Id, GetMetadataFromAttachment(meta));
                 return uploadedFile.Id;
-            }
         }
 
         public void Delete<T>(int id, string listname)
@@ -432,18 +387,12 @@ namespace AweCsome.Buffer
 
         public LiteCollection<T> GetCollection<T>()
         {
-            using (var database = GetDatabase())
-            {
-                return database.GetCollection<T>();
-            }
+                return _database.GetCollection<T>();
         }
 
         public IEnumerable<string> GetCollectionNames()
         {
-            using (var database = GetDatabase())
-            {
-                return database.GetCollectionNames();
-            }
+                return _database.GetCollectionNames();
         }
 
         private string AddPasswordToDbName(string dbName, string cleanedUrl)
@@ -465,22 +414,26 @@ namespace AweCsome.Buffer
                     string dbModeSetting = ConfigurationManager.AppSettings["DbMode"];
                     _dbMode = dbModeSetting == null ? DbModes.File : DbModes.Memory;
                 }
-                //lock (_dbLock)
 
-              //  _log.Debug($"Retrieving Database for '{connectionString}' ");
+                //_log.Debug($"Retrieving Database for '{connectionString}' ");
                 if (_dbMode == DbModes.Memory)
                 {
+                    _log.Debug("FROM MEMORY");
                     var oldDb = _memoryDb.FirstOrDefault(q => q.Filename == connectionString);
                     if (oldDb == null) _memoryDb.Add(new MemoryDatabase { Filename = connectionString, IsQueue = isQueue, Database = new LiteDatabase(new MemoryStream()) });
                     return _memoryDb.First(q => q.Filename == connectionString).Database;
                 }
                 database = new LiteDatabase(connectionString);
-              //  _log.Debug("Database retrieved");
+                //_log.Debug("Database retrieved");
             }
             catch (Exception ex)
             {
                 _log.Error("Error retrieving Database", ex);
                 throw;
+            }
+            if (database==null)
+            {
+                _log.Warn($"Database is null (but shouldn't) '{connectionString}' {isQueue} ");
             }
             return database;
 
