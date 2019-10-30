@@ -399,10 +399,10 @@ namespace AweCsome.Buffer
         {
             var guid = StartMeasurement();
             var localFiles = GetLocalFiles<T>(id);
-            var remoteFiles = _baseTable.SelectFileNamesFromItem<T>(id);
-            localFiles.ForEach(q => remoteFiles.Add(q));
-            StopMeasurement(guid, "SelectFileNamesFromItem (LiteDB + SharePoint)");
-            return remoteFiles;
+            //var remoteFiles = _baseTable.SelectFileNamesFromItem<T>(id);
+            //localFiles.ForEach(q => remoteFiles.Add(q));
+            StopMeasurement(guid, "SelectFileNamesFromItem (LiteDB)");
+            return localFiles;
         }
 
         public List<string> SelectFileNamesFromLibrary<T>(string foldername)
@@ -419,7 +419,7 @@ namespace AweCsome.Buffer
         {
             var guid = StartMeasurement();
             var localFiles = _db.GetFilesFromDocLib<T>(foldername, retrieveContent);
-            StopMeasurement(guid, "SeletLocatlFilesFromLibrary (LiteDB)");
+            StopMeasurement(guid, "SeletLocalFilesFromLibrary (LiteDB)");
             return localFiles;
         }
 

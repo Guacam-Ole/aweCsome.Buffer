@@ -35,8 +35,6 @@ namespace AweCsome.Buffer
         protected IAweCsomeTable _aweCsomeTable;
         private LiteDatabase _database;
 
-   
-
         public LiteDb(IAweCsomeHelpers helpers, IAweCsomeTable aweCsomeTable, string connectionString, bool queue = false)
         {
             _connectionString = connectionString;
@@ -86,7 +84,6 @@ namespace AweCsome.Buffer
             var elements = serialized.Split(new string[] { "~\n" }, StringSplitOptions.RemoveEmptyEntries);
             foreach (string element in elements)
             {
-
                 list.Add(DeserializePair<T, U>(element));
             }
             return list;
@@ -132,7 +129,7 @@ namespace AweCsome.Buffer
 
         public void DeleteTable(string name)
         {
-                _database.DropCollection(name);
+            _database.DropCollection(name);
         }
 
         private string CleanUpLiteDbId(string dirtyName)
@@ -152,23 +149,23 @@ namespace AweCsome.Buffer
         protected void DropCollection<T>(string name)
         {
             name = name ?? typeof(T).Name;
-                _database.DropCollection(name);
+            _database.DropCollection(name);
         }
 
-        protected LiteCollection<T> GetCollection<T>(string name, bool useLocal=false)
+        protected LiteCollection<T> GetCollection<T>(string name, bool useLocal = false)
         {
             name = name ?? typeof(T).Name;
-                return _database.GetCollection<T>(name);
+            return _database.GetCollection<T>(name);
         }
 
         public LiteCollection<BsonDocument> GetCollection(string name)
         {
-                return _database.GetCollection(name);
+            return _database.GetCollection(name);
         }
 
         private LiteStorage GetStorage()
         {
-                return _database.FileStorage;
+            return _database.FileStorage;
         }
 
         public void EmptyStorage()
@@ -181,79 +178,79 @@ namespace AweCsome.Buffer
 
         public void RemoveAttachment(BufferFileMeta meta)
         {
-                var existingFile = _database.FileStorage.Find(GetStringIdFromFilename(meta, true)).FirstOrDefault(q => q.Filename == meta.Filename);
-                if (existingFile == null) return;
-                _database.FileStorage.Delete(existingFile.Id);
+            var existingFile = _database.FileStorage.Find(GetStringIdFromFilename(meta, true)).FirstOrDefault(q => q.Filename == meta.Filename);
+            if (existingFile == null) return;
+            _database.FileStorage.Delete(existingFile.Id);
         }
 
         public void UpdateFileMeta(BufferFileMeta oldMeta, BufferFileMeta newMeta)
         {
-                string id = GetStringIdFromFilename(oldMeta);
-                var existingFile = _database.FileStorage.Find(id).FirstOrDefault(q => GetMetadataFromAttachment(q.Metadata).ParentId == oldMeta.ParentId);
-                if (existingFile == null)
-                {
-                    _log.Warn($"Cannot change meta for {id}. File cannot be found");
-                    return;
-                }
-                existingFile.Metadata = GetMetadataFromAttachment(newMeta);
+            string id = GetStringIdFromFilename(oldMeta);
+            var existingFile = _database.FileStorage.Find(id).FirstOrDefault(q => GetMetadataFromAttachment(q.Metadata).ParentId == oldMeta.ParentId);
+            if (existingFile == null)
+            {
+                _log.Warn($"Cannot change meta for {id}. File cannot be found");
+                return;
+            }
+            existingFile.Metadata = GetMetadataFromAttachment(newMeta);
         }
 
         public List<KeyValuePair<DateTime, string>> GetAttachmentNamesFromItem<T>(int id)
         {
-                var matches = new List<KeyValuePair<DateTime, string>>();
-                string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.Attachment, ParentId = id, Listname = _helpers.GetListName<T>() }, true);
-                var files = _database.FileStorage.Find(prefix);
-                if (matches == null) return null;
-                foreach (var file in files)
-                {
-                    if (GetMetadataFromAttachment(file.Metadata).ParentId == id) matches.Add(new KeyValuePair<DateTime, string>(file.UploadDate, file.Filename));
-                }
-                return matches;
+            var matches = new List<KeyValuePair<DateTime, string>>();
+            string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.Attachment, ParentId = id, Listname = _helpers.GetListName<T>() }, true);
+            var files = _database.FileStorage.Find(prefix);
+            if (matches == null) return null;
+            foreach (var file in files)
+            {
+                if (GetMetadataFromAttachment(file.Metadata).ParentId == id) matches.Add(new KeyValuePair<DateTime, string>(file.UploadDate, file.Filename));
+            }
+            return matches;
         }
 
         public List<string> GetFilenamesFromLibrary<T>(string folder)
         {
-                var matches = new List<string>();
+            var matches = new List<string>();
 
-                string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.DocLib, Folder = folder, Listname = _helpers.GetListName<T>() }, true);
+            string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.DocLib, Folder = folder, Listname = _helpers.GetListName<T>() }, true);
 
-                var files = _database.FileStorage.Find(prefix);
-                foreach (var file in files)
-                {
-                    matches.Add(file.Filename);
-                }
-                return matches;
+            var files = _database.FileStorage.Find(prefix);
+            foreach (var file in files)
+            {
+                matches.Add(file.Filename);
+            }
+            return matches;
         }
 
-        public void UpdateMetadata( string id, BsonDocument metadata)
+        public void UpdateMetadata(string id, BsonDocument metadata)
         {
             _database.FileStorage.SetMetadata(id, metadata);
         }
 
         public Dictionary<string, Stream> GetAttachmentsFromItem<T>(int id)
         {
-                var matches = new Dictionary<string, Stream>();
-                string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.Attachment, ParentId = id, Listname = _helpers.GetListName<T>() }, true);
-                var files = _database.FileStorage.Find(prefix);
-                if (matches == null) return null;
-                foreach (var file in files)
-                {
-                    if (GetMetadataFromAttachment(file.Metadata).ParentId != id) continue;
-                    MemoryStream fileStream = new MemoryStream((int)file.Length);
-                    file.CopyTo(fileStream);
-                    matches.Add(file.Filename, fileStream);
-                }
-                return matches;
+            var matches = new Dictionary<string, Stream>();
+            string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.Attachment, ParentId = id, Listname = _helpers.GetListName<T>() }, true);
+            var files = _database.FileStorage.Find(prefix);
+            if (matches == null) return null;
+            foreach (var file in files)
+            {
+                if (GetMetadataFromAttachment(file.Metadata).ParentId != id) continue;
+                MemoryStream fileStream = new MemoryStream((int)file.Length);
+                file.CopyTo(fileStream);
+                matches.Add(file.Filename, fileStream);
+            }
+            return matches;
         }
 
         public MemoryStream GetAttachmentStreamById(string id, out string filename, out BufferFileMeta meta)
         {
-                var fileInfo = _database.FileStorage.FindById(id);
-                filename = fileInfo.Filename;
-                MemoryStream fileStream = new MemoryStream((int)fileInfo.Length);
-                fileInfo.CopyTo(fileStream);
-                meta = GetMetadataFromAttachment(fileInfo.Metadata);
-                return fileStream;
+            var fileInfo = _database.FileStorage.FindById(id);
+            filename = fileInfo.Filename;
+            MemoryStream fileStream = new MemoryStream((int)fileInfo.Length);
+            fileInfo.CopyTo(fileStream);
+            meta = GetMetadataFromAttachment(fileInfo.Metadata);
+            return fileStream;
         }
 
         public IEnumerable<LiteFileInfo> GetAllFiles()
@@ -263,31 +260,31 @@ namespace AweCsome.Buffer
 
         public List<AweCsomeLibraryFile> GetFilesFromDocLib<T>(string folder, bool retrieveContent = true) where T : new()
         {
-                var matches = new List<AweCsomeLibraryFile>();
+            var matches = new List<AweCsomeLibraryFile>();
 
-                string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.DocLib, Folder = folder, Listname = _helpers.GetListName<T>() }, true);
+            string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.DocLib, Folder = folder, Listname = _helpers.GetListName<T>() }, true);
 
-                var files = _database.FileStorage.Find(prefix);
-                foreach (var file in files)
+            var files = _database.FileStorage.Find(prefix);
+            foreach (var file in files)
+            {
+                var meta = GetMetadataFromAttachment(file.Metadata);
+
+                var libFile = new AweCsomeLibraryFile
                 {
-                    var meta = GetMetadataFromAttachment(file.Metadata);
+                    Filename = file.Filename,
+                    Entity = meta
+                };
 
-                    var libFile = new AweCsomeLibraryFile
-                    {
-                        Filename = file.Filename,
-                        Entity = meta
-                    };
-
-                    if (retrieveContent)
-                    {
-                        MemoryStream fileStream = new MemoryStream((int)file.Length);
-                        file.CopyTo(fileStream);
-                        libFile.Stream = fileStream;
-                    }
-
-                    matches.Add(libFile);
+                if (retrieveContent)
+                {
+                    MemoryStream fileStream = new MemoryStream((int)file.Length);
+                    file.CopyTo(fileStream);
+                    libFile.Stream = fileStream;
                 }
-                return matches;
+
+                matches.Add(libFile);
+            }
+            return matches;
         }
 
         public BsonDocument GetMetadataFromAttachment(BufferFileMeta meta)
@@ -333,19 +330,19 @@ namespace AweCsome.Buffer
 
         public string AddAttachment(BufferFileMeta meta, Stream fileStream)
         {
-                int calculatedIndex = 0;
-                string prefix = GetStringIdFromFilename(meta, true);
-                var existingFiles = _database.FileStorage.Find(prefix);
-                if (existingFiles.Count() > 0)
-                {
-                    calculatedIndex = existingFiles.Min(q => int.Parse(q.Metadata["Id"].AsString ?? "0"));
-                    if (calculatedIndex > 0) calculatedIndex = 0;
-                }
-                calculatedIndex--;
-                meta.SetId(calculatedIndex);
-                var uploadedFile = _database.FileStorage.Upload(GetStringIdFromFilename(meta), meta.Filename, fileStream);
-                _database.FileStorage.SetMetadata(uploadedFile.Id, GetMetadataFromAttachment(meta));
-                return uploadedFile.Id;
+            int calculatedIndex = 0;
+            string prefix = GetStringIdFromFilename(meta, true);
+            var existingFiles = _database.FileStorage.Find(prefix);
+            if (existingFiles.Count() > 0)
+            {
+                calculatedIndex = existingFiles.Min(q => int.Parse(q.Metadata["Id"].AsString ?? "0"));
+                if (calculatedIndex > 0) calculatedIndex = 0;
+            }
+            calculatedIndex--;
+            meta.SetId(calculatedIndex);
+            var uploadedFile = _database.FileStorage.Upload(GetStringIdFromFilename(meta), meta.Filename, fileStream);
+            _database.FileStorage.SetMetadata(uploadedFile.Id, GetMetadataFromAttachment(meta));
+            return uploadedFile.Id;
         }
 
         public void Delete<T>(int id, string listname)
@@ -387,12 +384,12 @@ namespace AweCsome.Buffer
 
         public LiteCollection<T> GetCollection<T>()
         {
-                return _database.GetCollection<T>();
+            return _database.GetCollection<T>();
         }
 
         public IEnumerable<string> GetCollectionNames()
         {
-                return _database.GetCollectionNames();
+            return _database.GetCollectionNames();
         }
 
         private string AddPasswordToDbName(string dbName, string cleanedUrl)
@@ -431,12 +428,11 @@ namespace AweCsome.Buffer
                 _log.Error("Error retrieving Database", ex);
                 throw;
             }
-            if (database==null)
+            if (database == null)
             {
                 _log.Warn($"Database is null (but shouldn't) '{connectionString}' {isQueue} ");
             }
             return database;
-
         }
 
         public object CallGenericMethodByName(object baseObject, MethodInfo method, Type baseType, string fullyQualifiedName, object[] parameters)
