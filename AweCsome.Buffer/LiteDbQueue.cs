@@ -20,8 +20,6 @@ namespace AweCsome.Buffer
         private static readonly object _queueLock = new object();
         private readonly ILog _log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
         public Exception LastException { get; set; }
-        
-
 
         public LiteDbQueue(IAweCsomeHelpers helpers, IAweCsomeTable aweCsomeTable, string connectionString) : base(helpers, aweCsomeTable, connectionString, true)
         {
@@ -50,17 +48,17 @@ namespace AweCsome.Buffer
             }
         }
 
-        public List<Command> Read(bool useLocal=false)
+        public List<Command> Read(bool useLocal = false)
         {
             return GetCollection<Command>(null)?.FindAll()?.OrderBy(q => q.Created)?.ToList() ?? new List<Command>();
         }
 
-        public void Update(Command command, bool useLocal=false)
+        public void Update(Command command, bool useLocal = false)
         {
             GetCollection<Command>(null).Update(command);
         }
 
-        public void Delete(Command command, bool useLocal=false)
+        public void Delete(Command command, bool useLocal = false)
         {
             GetCollection<Command>().Delete(command.Id);
         }
@@ -126,69 +124,97 @@ namespace AweCsome.Buffer
             }
         }
 
+        private void UpdateFileBaseReference<T>(string listname, int oldId, int newId) where T : FileBase
+        {
+            var db = new LiteDb(_helpers, _aweCsomeTable, _connectionString);
+            var collection = db.GetCollection<T>();
+            var atts = collection.Find(q => q.List == listname && q.ReferenceId == oldId);
+            if (atts != null)
+            {
+                foreach (var att in atts)
+                {
+                    att.ReferenceId = newId;
+                    collection.Update(att);
+                }
+            }
+        }
+
+        private void UpdateFileBaseReferences(BufferFileMeta.AttachmentTypes attachmentType, string listname, int oldId, int newId)
+        {
+            if (attachmentType == BufferFileMeta.AttachmentTypes.Attachment)
+            {
+                UpdateFileBaseReference<FileAttachment>(listname, oldId, newId);
+            }
+            else if (attachmentType == BufferFileMeta.AttachmentTypes.DocLib)
+            {
+                UpdateFileBaseReference<FileDoclib>(listname, oldId, newId);
+            }
+        }
+
         private void UpdateFileLookups(Type baseType, string changedListname, int oldId, int newId)
         {
             var db = new LiteDb(_helpers, _aweCsomeTable, _connectionString);
-                var allFiles = db.GetAllFiles();
-                if (allFiles == null) return;
-                foreach (var file in allFiles)
+            var allFiles = db.GetAllFiles();
+            if (allFiles == null) return;
+            foreach (var file in allFiles)
+            {
+                var meta = db.GetMetadataFromAttachment(file.Metadata);
+                if (meta.AttachmentType == BufferFileMeta.AttachmentTypes.Attachment)
                 {
-                    var meta = db.GetMetadataFromAttachment(file.Metadata);
-                    if (meta.AttachmentType == BufferFileMeta.AttachmentTypes.Attachment)
+                    if (meta.Listname == changedListname && meta.ParentId == oldId)
                     {
-                        if (meta.Listname == changedListname && meta.ParentId == oldId)
-                        {
-                            meta.ParentId = newId;
-                            db.UpdateMetadata( file.Id, db.GetMetadataFromAttachment(meta));
-                        }
+                        meta.ParentId = newId;
+                        db.UpdateMetadata(file.Id, db.GetMetadataFromAttachment(meta));
                     }
-                    else
+                }
+                else
+                {
+                    if (meta.AdditionalInformation != null)
                     {
-                        if (meta.AdditionalInformation != null)
+                        Type targetType = baseType.Assembly.GetTypes().FirstOrDefault(q => q.FullName == meta.FullyQualifiedName);
+                        if (targetType == null) continue;
+                        var entity = JsonConvert.DeserializeObject(meta.AdditionalInformation, targetType);
+                        if (FindLookupProperties(targetType, changedListname, out List<PropertyInfo> lookupProperties, out List<PropertyInfo> virtualStaticProperties, out List<PropertyInfo> virtualDynamicProperties))
                         {
-                            Type targetType = baseType.Assembly.GetTypes().FirstOrDefault(q => q.FullName == meta.FullyQualifiedName);
-                            if (targetType == null) continue;
-                            var entity = JsonConvert.DeserializeObject(meta.AdditionalInformation, targetType);
-                            if (FindLookupProperties(targetType, changedListname, out List<PropertyInfo> lookupProperties, out List<PropertyInfo> virtualStaticProperties, out List<PropertyInfo> virtualDynamicProperties))
+                            bool elementChanged = false;
+                            foreach (var lookupProperty in lookupProperties)
                             {
-                                bool elementChanged = false;
-                                foreach (var lookupProperty in lookupProperties)
+                                if ((int?)lookupProperty.GetValue(entity) == oldId)
                                 {
-                                    if ((int?)lookupProperty.GetValue(entity) == oldId)
+                                    lookupProperty.SetValue(entity, newId);
+                                    elementChanged = true;
+                                }
+                            }
+                            foreach (var virtualStaticPropery in virtualStaticProperties)
+                            {
+                                if ((int?)virtualStaticPropery.GetValue(entity) == oldId)
+                                {
+                                    virtualStaticPropery.SetValue(entity, newId);
+                                    elementChanged = true;
+                                }
+                            }
+                            foreach (var virtualDynamicProperty in virtualDynamicProperties)
+                            {
+                                var attribute = virtualDynamicProperty.GetCustomAttribute<VirtualLookupAttribute>();
+                                var targetList = (string)targetType.GetProperty(attribute.DynamicTargetProperty).GetValue(entity);
+                                if (targetList == changedListname)
+                                {
+                                    if ((int?)virtualDynamicProperty.GetValue(entity) == oldId)
                                     {
-                                        lookupProperty.SetValue(entity, newId);
+                                        virtualDynamicProperty.SetValue(entity, newId);
                                         elementChanged = true;
                                     }
                                 }
-                                foreach (var virtualStaticPropery in virtualStaticProperties)
-                                {
-                                    if ((int?)virtualStaticPropery.GetValue(entity) == oldId)
-                                    {
-                                        virtualStaticPropery.SetValue(entity, newId);
-                                        elementChanged = true;
-                                    }
-                                }
-                                foreach (var virtualDynamicProperty in virtualDynamicProperties)
-                                {
-                                    var attribute = virtualDynamicProperty.GetCustomAttribute<VirtualLookupAttribute>();
-                                    var targetList = (string)targetType.GetProperty(attribute.DynamicTargetProperty).GetValue(entity);
-                                    if (targetList == changedListname)
-                                    {
-                                        if ((int?)virtualDynamicProperty.GetValue(entity) == oldId)
-                                        {
-                                            virtualDynamicProperty.SetValue(entity, newId);
-                                            elementChanged = true;
-                                        }
-                                    }
-                                }
-                                if (elementChanged)
-                                {
-                                    meta.AdditionalInformation = JsonConvert.SerializeObject(entity, Formatting.Indented);
-                                    db.UpdateMetadata( file.Id, db.GetMetadataFromAttachment(meta));
-                                }
+                            }
+                            if (elementChanged)
+                            {
+                                meta.AdditionalInformation = JsonConvert.SerializeObject(entity, Formatting.Indented);
+                                db.UpdateMetadata(file.Id, db.GetMetadataFromAttachment(meta));
                             }
                         }
                     }
+                }
+                UpdateFileBaseReferences(meta.AttachmentType, meta.Listname, oldId, newId);
             }
         }
 
@@ -282,7 +308,7 @@ namespace AweCsome.Buffer
                                 }
                                 catch (Exception ex)
                                 {
-                                    _log.Warn($"Cannot cast as int. List to check: {subType.Name} TargetType: {targetType.FullName}, lookupProperty: {lookupProperty.Name}"); 
+                                    _log.Warn($"Cannot cast as int. List to check: {subType.Name} TargetType: {targetType.FullName}, lookupProperty: {lookupProperty.Name}");
                                 }
                                 if (isId)
                                 {

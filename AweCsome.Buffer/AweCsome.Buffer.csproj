@@ -221,6 +221,9 @@
     <Compile Include="Entities\Command.cs" />
     <Compile Include="Entities\AweCsomeListItemBuffered.cs" />
     <Compile Include="Entities\BufferedAweCsomeListItem.cs" />
+    <Compile Include="Entities\FileAttachment.cs" />
+    <Compile Include="Entities\FileBase.cs" />
+    <Compile Include="Entities\FileDoclib.cs" />
     <Compile Include="Interfaces\IBufferTable.cs" />
     <Compile Include="Interfaces\ILiteDb.cs" />
     <Compile Include="Interfaces\ILiteDbQueue.cs" />

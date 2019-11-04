@@ -1,4 +1,5 @@
-﻿using AweCsome.Buffer.Interfaces;
+﻿using AweCsome.Buffer.Entities;
+using AweCsome.Buffer.Interfaces;
 using AweCsome.Entities;
 using AweCsome.Interfaces;
 
@@ -181,19 +182,28 @@ namespace AweCsome.Buffer
             var existingFile = _database.FileStorage.Find(GetStringIdFromFilename(meta, true)).FirstOrDefault(q => q.Filename == meta.Filename);
             if (existingFile == null) return;
             _database.FileStorage.Delete(existingFile.Id);
+            if (meta.AttachmentType== BufferFileMeta.AttachmentTypes.Attachment)
+            {
+                var att=_database.GetCollection<FileAttachment>().FindOne(q => q.ReferenceId == meta.ParentId && q.List == meta.Listname);
+                if (att != null) _database.GetCollection<FileAttachment>().Delete(att.FileId);
+            } else if (meta.AttachmentType== BufferFileMeta.AttachmentTypes.DocLib)
+            {
+                var att = _database.GetCollection<FileDoclib>().FindOne(q => q.ReferenceId == meta.ParentId && q.List == meta.Listname);
+                if (att != null) _database.GetCollection<FileDoclib>().Delete(att.FileId);
+            }
         }
 
-        public void UpdateFileMeta(BufferFileMeta oldMeta, BufferFileMeta newMeta)
-        {
-            string id = GetStringIdFromFilename(oldMeta);
-            var existingFile = _database.FileStorage.Find(id).FirstOrDefault(q => GetMetadataFromAttachment(q.Metadata).ParentId == oldMeta.ParentId);
-            if (existingFile == null)
-            {
-                _log.Warn($"Cannot change meta for {id}. File cannot be found");
-                return;
-            }
-            existingFile.Metadata = GetMetadataFromAttachment(newMeta);
-        }
+        //public void UpdateFileMeta(BufferFileMeta oldMeta, BufferFileMeta newMeta)
+        //{
+        //    string id = GetStringIdFromFilename(oldMeta);
+        //    var existingFile = _database.FileStorage.Find(id).FirstOrDefault(q => GetMetadataFromAttachment(q.Metadata).ParentId == oldMeta.ParentId);
+        //    if (existingFile == null)
+        //    {
+        //        _log.Warn($"Cannot change meta for {id}. File cannot be found");
+        //        return;
+        //    }
+        //    existingFile.Metadata = GetMetadataFromAttachment(newMeta);
+        //}
 
         public List<KeyValuePair<DateTime, string>> GetAttachmentNamesFromItem<T>(int id)
         {
@@ -342,7 +352,35 @@ namespace AweCsome.Buffer
             meta.SetId(calculatedIndex);
             var uploadedFile = _database.FileStorage.Upload(GetStringIdFromFilename(meta), meta.Filename, fileStream);
             _database.FileStorage.SetMetadata(uploadedFile.Id, GetMetadataFromAttachment(meta));
-            return uploadedFile.Id;
+            string fileId = uploadedFile.Id;
+
+            if (meta.AttachmentType == BufferFileMeta.AttachmentTypes.Attachment)
+            {
+                var collection = _database.GetCollection<FileAttachment>();
+                collection.Insert(new FileAttachment
+                {
+                    FileId = fileId,
+                    Filename = meta.Filename,
+                    List = meta.Listname,
+                    ReferenceId = meta.ParentId,
+                    State = FileBase.AllowedStates.Upload
+                });
+            }
+            else if (meta.AttachmentType == BufferFileMeta.AttachmentTypes.DocLib)
+            {
+                var collection = _database.GetCollection<FileDoclib>();
+                collection.Insert(new FileDoclib
+                {
+                    FileId = fileId,
+                    Filename = meta.Filename,
+                    List = meta.Listname,
+                    ReferenceId = meta.ParentId,
+                    State = FileBase.AllowedStates.Upload,
+                    Folder = meta.Folder
+                });
+            }
+
+            return fileId;
         }
 
         public void Delete<T>(int id, string listname)
