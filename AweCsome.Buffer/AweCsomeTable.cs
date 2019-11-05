@@ -25,6 +25,9 @@ namespace AweCsome.Buffer
         public ILiteDbQueue Queue { get; }
         private Dictionary<Guid, DateTime> _measurements = new Dictionary<Guid, DateTime>();
 
+
+
+
         private Guid StartMeasurement()
         {
             var guid = Guid.NewGuid();
@@ -66,6 +69,11 @@ namespace AweCsome.Buffer
 
         public void AttachFileToItem<T>(int id, string filename, Stream filestream)
         {
+            AttachFileToItem<T>(id, filename, filestream, true);
+        }
+
+        private void AttachFileToItem<T>(int id, string filename, Stream filestream, bool addToQueue)
+        {
             var guid = StartMeasurement();
 
             string liteAttachmentId = _db.AddAttachment(new BufferFileMeta
@@ -76,13 +84,16 @@ namespace AweCsome.Buffer
                 ParentId = id
             }, filestream);
 
-            Queue.AddCommand<T>(new Command
+            if (addToQueue)
             {
-                Action = Command.Actions.AttachFileToItem,
-                ItemId = id,
-                TableName = _helpers.GetListName<T>(),
-                Parameters = new Dictionary<string, object> { { "AttachmentId", liteAttachmentId } }
-            });
+                Queue.AddCommand<T>(new Command
+                {
+                    Action = Command.Actions.AttachFileToItem,
+                    ItemId = id,
+                    TableName = _helpers.GetListName<T>(),
+                    Parameters = new Dictionary<string, object> { { "AttachmentId", liteAttachmentId } }
+                });
+            }
             StopMeasurement(guid, "AttachFileToItem (LiteDB)");
         }
 
@@ -95,6 +106,11 @@ namespace AweCsome.Buffer
 
         public string AttachFileToLibrary<T>(string folder, string filename, Stream filestream, T entity)
         {
+            return AttachFileToLibrary<T>(folder, filename, filestream, entity, true);
+        }
+
+        private string AttachFileToLibrary<T>(string folder, string filename, Stream filestream, T entity, bool addToQueue)
+        {
             var guid = StartMeasurement();
             string liteAttachmentId = _db.AddAttachment(new BufferFileMeta
             {
@@ -106,12 +122,15 @@ namespace AweCsome.Buffer
                 AdditionalInformation = JsonConvert.SerializeObject(entity, Formatting.Indented)
             }, filestream);
 
-            Queue.AddCommand<T>(new Command
+            if (addToQueue)
             {
-                Action = Command.Actions.AttachFileToLibrary,
-                TableName = _helpers.GetListName<T>(),
-                Parameters = new Dictionary<string, object> { { "AttachmentId", liteAttachmentId }, { "Folder", folder } }
-            });
+                Queue.AddCommand<T>(new Command
+                {
+                    Action = Command.Actions.AttachFileToLibrary,
+                    TableName = _helpers.GetListName<T>(),
+                    Parameters = new Dictionary<string, object> { { "AttachmentId", liteAttachmentId }, { "Folder", folder } }
+                });
+            }
 
             StopMeasurement(guid, "AttachFileToLibrary (LiteDB)");
             return $"{folder}/{filename}";
@@ -373,7 +392,7 @@ namespace AweCsome.Buffer
             return result;
         }
 
-        public AweCsomeLibraryFile SelectFileFromLibrary<T>(string foldername, string filename) where T : new()
+        public AweCsomeFile SelectFileFromLibrary<T>(string foldername, string filename) where T : new()
         {
             var guid = StartMeasurement();
             var localFiles = _db.GetFilesFromDocLib<T>(foldername);
@@ -415,7 +434,7 @@ namespace AweCsome.Buffer
             return remoteFiles;
         }
 
-        public List<AweCsomeLibraryFile> SelectLocalFilesFromLibrary<T>(string foldername, bool retrieveContent = true) where T : new()
+        public List<AweCsomeFile> SelectLocalFilesFromLibrary<T>(string foldername, bool retrieveContent = true) where T : new()
         {
             var guid = StartMeasurement();
             var localFiles = _db.GetFilesFromDocLib<T>(foldername, retrieveContent);
@@ -423,11 +442,11 @@ namespace AweCsome.Buffer
             return localFiles;
         }
 
-        public List<AweCsomeLibraryFile> SelectFilesFromLibrary<T>(string foldername, bool retrieveContent = true) where T : new()
+        public List<AweCsomeFile> SelectFilesFromLibrary<T>(string foldername, bool retrieveContent = true) where T : new()
         {
             var guid = StartMeasurement();
-            var localFiles = _db.GetFilesFromDocLib<T>(foldername, retrieveContent) ?? new List<AweCsomeLibraryFile>();
-            var spFiles = _baseTable.SelectFilesFromLibrary<T>(foldername, retrieveContent) ?? new List<AweCsomeLibraryFile>();
+            var localFiles = _db.GetFilesFromDocLib<T>(foldername, retrieveContent) ?? new List<AweCsomeFile>();
+            var spFiles = _baseTable.SelectFilesFromLibrary<T>(foldername, retrieveContent) ?? new List<AweCsomeFile>();
             localFiles.ForEach(q => spFiles.Add(q));
             StopMeasurement(guid, "SelectFilesFromLibrary (LiteDB + SharePoint)");
             return spFiles;
@@ -615,13 +634,13 @@ namespace AweCsome.Buffer
             return newId;
         }
 
-        public Dictionary<string, Stream> SelectFilesFromItem<T>(int id, string filename = null)
+        public List<AweCsomeFile> SelectFilesFromItem<T>(int id, string filename = null)
         {
             var guid = StartMeasurement();
             var localFiles = _db.GetAttachmentsFromItem<T>(id);
-            if (filename != null) localFiles = localFiles.Where(q => q.Key == filename).ToDictionary(q => q.Key, q => q.Value);
-            var spFiles = _baseTable.SelectFilesFromItem<T>(id, filename) ?? new Dictionary<string, Stream>();
-            localFiles.ToList().ForEach(q => spFiles.Add(q.Key, q.Value));
+            if (filename != null) localFiles = localFiles.Where(q => q.Filename == filename).ToList();
+            var spFiles = _baseTable.SelectFilesFromItem<T>(id, filename) ?? new List<AweCsomeFile>();
+            localFiles.ToList().ForEach(q => spFiles.Add(q));
             StopMeasurement(guid, "SelectFilesFromItem (SharePoint)");
             return spFiles;
         }
@@ -670,6 +689,75 @@ namespace AweCsome.Buffer
             var guid = StartMeasurement();
             _baseTable.UpdateTableStructure<T>();
             StopMeasurement(guid, "UpdateTableStructure (SharePoint)");
+        }
+
+        public void StoreAttachmentsInLiteDb<T>(long maxFilesize) where T : AweCsomeListItem, new()
+        {
+            var allItems = _baseTable.SelectAllItems<T>();
+            foreach (var itemId in allItems.Select(q => q.Id))
+            {
+                var files = _baseTable.SelectFilesFromItem<T>(itemId);
+                if (files != null)
+                {
+                    foreach(var file in files)
+                    {
+                        long fileSize = file.Length;
+                        if (fileSize>maxFilesize)
+                        {
+                            StoreAttachmentNameToItem(file.Filename, typeof(T).Name, itemId);
+                            _log.Debug($"Attachment '{file.Filename}' NOT stored into LiteDB (too big: {PrettyLong(file.Length)})");
+                        } else
+                        {
+                            AttachFileToItem<T>(itemId, file.Filename, file.Stream, false);
+                            _log.Debug($"Stored Attachment '{file.Filename}' into LiteDB ({PrettyLong(file.Length)})");
+                        }
+                    }
+                }
+            }
+        }
+
+        private void StoreAttachmentNameToItem(string filename, string listname, int referenceId)
+        {
+            var collection = _db.GetCollection<FileAttachment>();
+            collection.Insert(new FileAttachment
+            {
+                FileId = Guid.NewGuid().ToString(), // Dummy-FileId
+                Filename = filename,
+                List = listname,
+                ReferenceId = referenceId,
+                State = FileBase.AllowedStates.Upload
+            });
+        }
+
+        private string NextSuffix(ref long value, string suffix, out bool changed)
+        {
+            changed = false;
+            if (value>1024)
+            {
+                value = value / 1024;
+                changed = true;
+                return suffix;
+            }
+            return null;
+        }
+
+        private string PrettyLong(long value)
+        {
+            string suffix = NextSuffix(ref value, "KB", out bool changed) ?? "Bytes";
+            if (changed) suffix = NextSuffix(ref value, "MB", out changed) ?? "KB";
+            if (changed) suffix = NextSuffix(ref value, "GB", out changed) ?? "MB";
+            if (changed) suffix = NextSuffix(ref value, "TB", out changed);
+            return $"{value} {suffix}";
+        }
+
+        public void StoreDocLibInLiteDb<T>() where T : AweCsomeListItem, new()
+        {
+            throw new NotImplementedException();
+        }
+
+        public void StoreAttachmentsInLiteDb<T>() where T : AweCsomeListItem, new()
+        {
+            throw new NotImplementedException();
         }
     }
 }

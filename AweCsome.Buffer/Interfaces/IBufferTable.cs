@@ -1,4 +1,5 @@
-﻿using System;
+﻿using AweCsome.Entities;
+using System;
 
 namespace AweCsome.Buffer.Interfaces
 {
@@ -9,5 +10,7 @@ namespace AweCsome.Buffer.Interfaces
         void ReadAllFromList(Type entityType);
         void GetChangesFromAllLists(Type baseType);
         void EmptyStorage();
+        void StoreAttachmentsInLiteDb<T>() where T : AweCsomeListItem, new();
+        void StoreDocLibInLiteDb<T>() where T : AweCsomeListItem, new();
     }
 }

@@ -237,9 +237,9 @@ namespace AweCsome.Buffer
             _database.FileStorage.SetMetadata(id, metadata);
         }
 
-        public Dictionary<string, Stream> GetAttachmentsFromItem<T>(int id)
+        public List<AweCsomeFile> GetAttachmentsFromItem<T>(int id)
         {
-            var matches = new Dictionary<string, Stream>();
+            var matches = new List<AweCsomeFile>();
             string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.Attachment, ParentId = id, Listname = _helpers.GetListName<T>() }, true);
             var files = _database.FileStorage.Find(prefix);
             if (matches == null) return null;
@@ -248,7 +248,11 @@ namespace AweCsome.Buffer
                 if (GetMetadataFromAttachment(file.Metadata).ParentId != id) continue;
                 MemoryStream fileStream = new MemoryStream((int)file.Length);
                 file.CopyTo(fileStream);
-                matches.Add(file.Filename, fileStream);
+                matches.Add(new AweCsomeFile
+                {
+                    Filename = file.Filename,
+                    Stream = fileStream
+                });
             }
             return matches;
         }
@@ -268,9 +272,9 @@ namespace AweCsome.Buffer
             return _database.FileStorage.FindAll();
         }
 
-        public List<AweCsomeLibraryFile> GetFilesFromDocLib<T>(string folder, bool retrieveContent = true) where T : new()
+        public List<AweCsomeFile> GetFilesFromDocLib<T>(string folder, bool retrieveContent = true) where T : new()
         {
-            var matches = new List<AweCsomeLibraryFile>();
+            var matches = new List<AweCsomeFile>();
 
             string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.DocLib, Folder = folder, Listname = _helpers.GetListName<T>() }, true);
 
@@ -279,7 +283,7 @@ namespace AweCsome.Buffer
             {
                 var meta = GetMetadataFromAttachment(file.Metadata);
 
-                var libFile = new AweCsomeLibraryFile
+                var libFile = new AweCsomeFile
                 {
                     Filename = file.Filename,
                     Entity = meta
