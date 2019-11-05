@@ -21,60 +21,7 @@ namespace AweCsome.Buffer
         private Type _baseType;
         public static Exception LastException { get; set; }
 
-        private long GetSizeFromConfig(string configName)
-        {
-            string config = ConfigurationManager.AppSettings[configName];
-            if (config == null) return 0;
-            var parts = config.Split(' ');
-            if (parts.Length > 2) return -1; // Unexpected value
-            if (parts.Length == 0)
-            {
-                if (!long.TryParse(config, out long justTheNumber)) return -2; // NaN
-                return justTheNumber;
-            }
-            if (!long.TryParse(parts[0], out long configNumber)) return -2; // NaN
-            switch (parts[1].ToLower().Trim())
-            {
-                case "b":
-                case "byte":
-                case "bytes":
-                    return configNumber;
-
-                case "kb":
-                case "kbyte":
-                case "kbytes":
-                    return configNumber * 1024;
-
-                case "mb":
-                case "mbyte":
-                case "mbytes":
-                    return configNumber * 1024 * 1024;
-
-                case "gb":
-                case "gbyte":
-                case "gbytes":
-                    return configNumber * 1024 * 1024 * 1024;
-
-                default:
-                    return -1; // unexpected value
-            }
-        }
-
-        private long MaxLocalImageSize
-        {
-            get
-            {
-                return GetSizeFromConfig("AweCsome.Limit.DocLib");
-            }
-        }
-
-        private long MaxLocalAttachmentSize
-        {
-            get
-            {
-                return GetSizeFromConfig("AweCsome.Limit.Attachment");
-            }
-        }
+  
 
         public QueueCommandExecution(LiteDbQueue queue, IAweCsomeTable awecsomeTable, Type baseType)
         {
@@ -258,7 +205,7 @@ namespace AweCsome.Buffer
                 var att = attCollection.FindById(attachmentId);
                 if (att != null)
                 {
-                    if (fileSize > MaxLocalImageSize)
+                    if (fileSize > Configuration.MaxLocalDocLibSize)
                     {
                         att.State = FileBase.AllowedStates.Server;
                         _queue.DeleteAttachmentFromDbWithoutSyncing(meta);
@@ -324,7 +271,7 @@ namespace AweCsome.Buffer
                 var att = attCollection.FindById(attachmentId);
                 if (att != null)
                 {
-                    if (fileSize > MaxLocalImageSize)
+                    if (fileSize > Configuration.MaxLocalDocLibSize)
                     {
                         att.State = FileBase.AllowedStates.Server;
                         _queue.DeleteAttachmentFromDbWithoutSyncing(meta);

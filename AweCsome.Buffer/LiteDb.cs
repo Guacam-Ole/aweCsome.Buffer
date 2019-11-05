@@ -135,7 +135,7 @@ namespace AweCsome.Buffer
 
         private string CleanUpLiteDbId(string dirtyName)
         {
-            dirtyName = dirtyName.Replace("-", "_");
+            dirtyName = dirtyName.Replace("-", "__").Replace("\\", "_").Replace("/", "_");
             Regex rx = new Regex("[^a-zA-Z0-9_]");
             return rx.Replace(dirtyName, "");
         }
@@ -182,11 +182,12 @@ namespace AweCsome.Buffer
             var existingFile = _database.FileStorage.Find(GetStringIdFromFilename(meta, true)).FirstOrDefault(q => q.Filename == meta.Filename);
             if (existingFile == null) return;
             _database.FileStorage.Delete(existingFile.Id);
-            if (meta.AttachmentType== BufferFileMeta.AttachmentTypes.Attachment)
+            if (meta.AttachmentType == BufferFileMeta.AttachmentTypes.Attachment)
             {
-                var att=_database.GetCollection<FileAttachment>().FindOne(q => q.ReferenceId == meta.ParentId && q.List == meta.Listname);
+                var att = _database.GetCollection<FileAttachment>().FindOne(q => q.ReferenceId == meta.ParentId && q.List == meta.Listname);
                 if (att != null) _database.GetCollection<FileAttachment>().Delete(att.FileId);
-            } else if (meta.AttachmentType== BufferFileMeta.AttachmentTypes.DocLib)
+            }
+            else if (meta.AttachmentType == BufferFileMeta.AttachmentTypes.DocLib)
             {
                 var att = _database.GetCollection<FileDoclib>().FindOne(q => q.ReferenceId == meta.ParentId && q.List == meta.Listname);
                 if (att != null) _database.GetCollection<FileDoclib>().Delete(att.FileId);
@@ -286,7 +287,7 @@ namespace AweCsome.Buffer
                 var libFile = new AweCsomeFile
                 {
                     Filename = file.Filename,
-                    Entity = meta
+                    Entity = meta.AdditionalInformation
                 };
 
                 if (retrieveContent)
@@ -342,7 +343,7 @@ namespace AweCsome.Buffer
             return meta;
         }
 
-        public string AddAttachment(BufferFileMeta meta, Stream fileStream)
+        public string AddAttachment(BufferFileMeta meta, Stream fileStream, FileBase.AllowedStates state)
         {
             int calculatedIndex = 0;
             string prefix = GetStringIdFromFilename(meta, true);
@@ -367,7 +368,7 @@ namespace AweCsome.Buffer
                     Filename = meta.Filename,
                     List = meta.Listname,
                     ReferenceId = meta.ParentId,
-                    State = FileBase.AllowedStates.Upload
+                    State = state
                 });
             }
             else if (meta.AttachmentType == BufferFileMeta.AttachmentTypes.DocLib)
@@ -379,7 +380,7 @@ namespace AweCsome.Buffer
                     Filename = meta.Filename,
                     List = meta.Listname,
                     ReferenceId = meta.ParentId,
-                    State = FileBase.AllowedStates.Upload,
+                    State = state,
                     Folder = meta.Folder
                 });
             }
@@ -568,8 +569,7 @@ namespace AweCsome.Buffer
             foreach (var type in baseType.Assembly.GetTypes())
             {
                 var constructor = type.GetConstructor(Type.EmptyTypes);
-                if (constructor == null)
-                    continue;
+                if (constructor == null) continue;
                 if (forbiddenNamespace != null && type.Namespace.Contains(forbiddenNamespace)) continue;
                 MethodInfo method = GetMethod<LiteDbQueue>(q => q.ReadAllFromList<object>());
                 CallGenericMethod(this, method, type, null);

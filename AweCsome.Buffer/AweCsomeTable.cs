@@ -74,6 +74,7 @@ namespace AweCsome.Buffer
 
         private void AttachFileToItem<T>(int id, string filename, Stream filestream, bool addToQueue)
         {
+            if (filestream != null) filestream.Seek(0, SeekOrigin.Begin);
             var guid = StartMeasurement();
 
             string liteAttachmentId = _db.AddAttachment(new BufferFileMeta
@@ -82,7 +83,7 @@ namespace AweCsome.Buffer
                 Filename = filename,
                 Listname = _helpers.GetListName<T>(),
                 ParentId = id
-            }, filestream);
+            }, filestream, addToQueue? FileBase.AllowedStates.Upload: FileBase.AllowedStates.Local);
 
             if (addToQueue)
             {
@@ -111,6 +112,7 @@ namespace AweCsome.Buffer
 
         private string AttachFileToLibrary<T>(string folder, string filename, Stream filestream, T entity, bool addToQueue)
         {
+            if (filestream != null) filestream.Seek(0, SeekOrigin.Begin);
             var guid = StartMeasurement();
             string liteAttachmentId = _db.AddAttachment(new BufferFileMeta
             {
@@ -120,7 +122,7 @@ namespace AweCsome.Buffer
                 FullyQualifiedName = typeof(T).FullName,
                 Folder = folder,
                 AdditionalInformation = JsonConvert.SerializeObject(entity, Formatting.Indented)
-            }, filestream);
+            }, filestream, addToQueue? FileBase.AllowedStates.Upload: FileBase.AllowedStates.Local);
 
             if (addToQueue)
             {
@@ -667,7 +669,7 @@ namespace AweCsome.Buffer
         {
             var guid = StartMeasurement();
             _db.ReadAllLists(baseType, forbiddenNamespace);
-            StopMeasurement(guid, "ReadAllLists (LiteDB)");
+            StopMeasurement(guid, "ReadAllLists (SharePoint)");
         }
 
         public void ReadAllFromList<T>() where T : new()
@@ -693,27 +695,73 @@ namespace AweCsome.Buffer
 
         public void StoreAttachmentsInLiteDb<T>(long maxFilesize) where T : AweCsomeListItem, new()
         {
+            var guid = StartMeasurement();
+            ClearAttachmentsInLiteDB<T>();
             var allItems = _baseTable.SelectAllItems<T>();
             foreach (var itemId in allItems.Select(q => q.Id))
             {
                 var files = _baseTable.SelectFilesFromItem<T>(itemId);
-                if (files != null)
+                if (files == null) continue;
+                foreach (var file in files)
                 {
-                    foreach(var file in files)
+                    long fileSize = file.Length;
+                    if (fileSize > maxFilesize)
                     {
-                        long fileSize = file.Length;
-                        if (fileSize>maxFilesize)
-                        {
-                            StoreAttachmentNameToItem(file.Filename, typeof(T).Name, itemId);
-                            _log.Debug($"Attachment '{file.Filename}' NOT stored into LiteDB (too big: {PrettyLong(file.Length)})");
-                        } else
-                        {
-                            AttachFileToItem<T>(itemId, file.Filename, file.Stream, false);
-                            _log.Debug($"Stored Attachment '{file.Filename}' into LiteDB ({PrettyLong(file.Length)})");
-                        }
+                        StoreAttachmentNameToItem(file.Filename, typeof(T).Name, itemId);
+                        _log.Debug($"Attachment '{file.Filename}' NOT stored into LiteDB (too big: {FileHelper.PrettyLong(fileSize)})");
+                    }
+                    else
+                    {
+                        AttachFileToItem<T>(itemId, file.Filename, file.Stream, false);
+                        _log.Debug($"Stored Attachment '{file.Filename}' into LiteDB ({FileHelper.PrettyLong(fileSize)})");
                     }
                 }
             }
+            StopMeasurement(guid, "StoreAttachmentsInLiteDb (SharePoint)");
+        }
+
+        private void ClearDocLibInLiteDB<T>(string folder) where T: AweCsomeListItem, new()
+        {
+            var collection = _db.GetCollection<FileDoclib>();
+            collection.Delete(q => q.List == typeof(T).Name && q.Folder==folder);
+        }
+
+        private void ClearAttachmentsInLiteDB<T>() where T : AweCsomeListItem, new()
+        {
+            var collection = _db.GetCollection<FileAttachment>();
+            collection.Delete(q => q.List == typeof(T).Name);
+        }
+
+        public void StoreDocLibInLiteDb<T>(long maxFilesize, string folder) where T : AweCsomeListItem, new()
+        {
+            var guid = StartMeasurement();
+            ClearDocLibInLiteDB<T>(folder);
+            var allAttachments = _baseTable.SelectFilesFromLibrary<T>(folder, true);
+            if (allAttachments == null) return;
+            foreach (var file in allAttachments)
+            {
+                long fileSize = file.Length;
+                if (fileSize > maxFilesize)
+                {
+                    int? id = null;
+                    if (file.Entity!=null)
+                    {
+                        var idProperty = file.Entity.GetType().GetProperty("Id");
+                        if (idProperty!=null)
+                        {
+                            id = (int)idProperty.GetValue(file.Entity);
+                        }
+                    }
+                    StoreAttachmentNameToDocLib(file.Filename, typeof(T).Name, file.Folder, id);
+                    _log.Debug($"File from DocLib '{file.Filename}' NOT stored into LiteDB (too big: {FileHelper.PrettyLong(fileSize)})");
+                }
+                else
+                {
+                    AttachFileToLibrary<T>(file.Folder, file.Filename, file.Stream, (T)file.Entity, false);
+                    _log.Debug($"Stored Attachment '{file.Filename}' into LiteDB ({FileHelper.PrettyLong(fileSize)})");
+                }
+            }
+            StopMeasurement(guid, "StoreDocLibInLiteDb (SharePoint)");
         }
 
         private void StoreAttachmentNameToItem(string filename, string listname, int referenceId)
@@ -721,43 +769,31 @@ namespace AweCsome.Buffer
             var collection = _db.GetCollection<FileAttachment>();
             collection.Insert(new FileAttachment
             {
+                
                 FileId = Guid.NewGuid().ToString(), // Dummy-FileId
                 Filename = filename,
                 List = listname,
                 ReferenceId = referenceId,
-                State = FileBase.AllowedStates.Upload
+                State = FileBase.AllowedStates.Server
             });
         }
 
-        private string NextSuffix(ref long value, string suffix, out bool changed)
+        private void StoreAttachmentNameToDocLib(string filename, string listname, string folder, int? referenceId)
         {
-            changed = false;
-            if (value>1024)
+            var collection = _db.GetCollection<FileDoclib>();
+            collection.Insert(new FileDoclib
             {
-                value = value / 1024;
-                changed = true;
-                return suffix;
-            }
-            return null;
+                FileId = Guid.NewGuid().ToString(), // Dummy-FileId
+                Filename = filename,
+                List = listname,
+                ReferenceId = referenceId,
+                State = FileBase.AllowedStates.Server,
+                Folder=folder
+            });
         }
 
-        private string PrettyLong(long value)
-        {
-            string suffix = NextSuffix(ref value, "KB", out bool changed) ?? "Bytes";
-            if (changed) suffix = NextSuffix(ref value, "MB", out changed) ?? "KB";
-            if (changed) suffix = NextSuffix(ref value, "GB", out changed) ?? "MB";
-            if (changed) suffix = NextSuffix(ref value, "TB", out changed);
-            return $"{value} {suffix}";
-        }
 
-        public void StoreDocLibInLiteDb<T>() where T : AweCsomeListItem, new()
-        {
-            throw new NotImplementedException();
-        }
 
-        public void StoreAttachmentsInLiteDb<T>() where T : AweCsomeListItem, new()
-        {
-            throw new NotImplementedException();
-        }
+
     }
 }

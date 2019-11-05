@@ -36,7 +36,7 @@
       <HintPath>..\packages\AngleSharp.0.13.0\lib\net46\AngleSharp.dll</HintPath>
     </Reference>
     <Reference Include="AweCsome.Interfaces, Version=4.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\Mydea\MydeaEntityO365\packages\AweCsome.Interfaces.4.0.0-CI-20191105.2\lib\net452\AweCsome.Interfaces.dll</HintPath>
+      <HintPath>..\..\Mydea\MydeaEntityO365\packages\AweCsome.Interfaces.4.0.0-CI-20191105.6\lib\net452\AweCsome.Interfaces.dll</HintPath>
     </Reference>
     <Reference Include="LiteDB, Version=4.1.4.0, Culture=neutral, PublicKeyToken=4ee40123013c9f27, processorArchitecture=MSIL">
       <HintPath>..\packages\LiteDB.4.1.4\lib\net40\LiteDB.dll</HintPath>
@@ -215,6 +215,7 @@
     <Compile Include="AweCsomeTable.cs" />
     <Compile Include="BufferFileMeta.cs" />
     <Compile Include="BufferState.cs" />
+    <Compile Include="Configuration.cs" />
     <Compile Include="Entities\Command.cs" />
     <Compile Include="Entities\AweCsomeListItemBuffered.cs" />
     <Compile Include="Entities\BufferedAweCsomeListItem.cs" />

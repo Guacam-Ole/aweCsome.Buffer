@@ -1,4 +1,5 @@
-﻿using AweCsome.Entities;
+﻿using AweCsome.Buffer.Entities;
+using AweCsome.Entities;
 using LiteDB;
 using System;
 using System.Collections.Generic;
@@ -15,7 +16,7 @@ namespace AweCsome.Buffer.Interfaces
     {
         MemoryStream GetAttachmentStreamById(string id, out string filename, out BufferFileMeta meta);
         List<AweCsomeFile> GetFilesFromDocLib<T>(string folder, bool retrieveData = true) where T : new();
-        string AddAttachment(BufferFileMeta meta, Stream fileStream);
+        string AddAttachment(BufferFileMeta meta, Stream fileStream, FileBase.AllowedStates state);
         int Insert<T>(T item, string listname);
         LiteCollection<T> GetCollection<T>();
         IEnumerable<string> GetCollectionNames();

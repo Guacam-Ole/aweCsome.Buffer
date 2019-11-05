@@ -10,7 +10,7 @@ namespace AweCsome.Buffer.Interfaces
         void ReadAllFromList(Type entityType);
         void GetChangesFromAllLists(Type baseType);
         void EmptyStorage();
-        void StoreAttachmentsInLiteDb<T>() where T : AweCsomeListItem, new();
-        void StoreDocLibInLiteDb<T>() where T : AweCsomeListItem, new();
+        void StoreAttachmentsInLiteDb<T>(long maxSize) where T : AweCsomeListItem, new();
+        void StoreDocLibInLiteDb<T>(long maxSize, string folder) where T : AweCsomeListItem, new();
     }
 }

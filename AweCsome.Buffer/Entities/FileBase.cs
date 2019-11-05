@@ -14,6 +14,6 @@ namespace AweCsome.Buffer.Entities
         public AllowedStates State { get; set; }
         public string Filename { get; set; }
 
-        public int ReferenceId { get; set; }
+        public int? ReferenceId { get; set; }
     }
 }
