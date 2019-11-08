@@ -214,6 +214,7 @@ namespace AweCsome.Buffer
                     {
                         att.State = FileBase.AllowedStates.Local;
                     }
+                    attCollection.Update(att);
                 }
                 
                 return true;
@@ -280,6 +281,7 @@ namespace AweCsome.Buffer
                     {
                         att.State = FileBase.AllowedStates.Local;
                     }
+                    attCollection.Update(att);
                 }
 
                 return true;
