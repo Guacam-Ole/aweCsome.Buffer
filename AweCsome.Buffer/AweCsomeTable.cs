@@ -77,6 +77,7 @@ namespace AweCsome.Buffer
             if (filestream != null) filestream.Seek(0, SeekOrigin.Begin);
             var guid = StartMeasurement();
 
+
             string liteAttachmentId = _db.AddAttachment(new BufferFileMeta
             {
                 AttachmentType = BufferFileMeta.AttachmentTypes.Attachment,
@@ -84,7 +85,6 @@ namespace AweCsome.Buffer
                 Listname = _helpers.GetListName<T>(),
                 ParentId = id
             }, filestream, addToQueue ? FileBase.AllowedStates.Upload : FileBase.AllowedStates.Local);
-
             if (addToQueue)
             {
                 Queue.AddCommand<T>(new Command
@@ -757,7 +757,7 @@ namespace AweCsome.Buffer
             folder = folder.Replace("/", "");
 
             var collection = _db.GetCollection<FileDoclib>();
-            collection.Delete(q => q.List == typeof(T).Name && q.Folder.Replace("\\","").Replace("/","") == folder );
+            collection.Delete(q => q.List == typeof(T).Name && q.Folder.Replace("\\", "").Replace("/", "") == folder);
         }
 
         private void ClearAttachmentsInLiteDB<T>() where T : AweCsomeListItem, new()

@@ -271,6 +271,11 @@ namespace AweCsome.Buffer
             return files;
         }
 
+        public bool AttachmentExists(string id)
+        {
+            return _database.FileStorage.Exists(id);
+        }
+
         public MemoryStream GetAttachmentStreamById(string id, out string filename, out BufferFileMeta meta)
         {
             var fileInfo = _database.FileStorage.FindById(id);
@@ -402,13 +407,16 @@ namespace AweCsome.Buffer
             }
             calculatedIndex--;
             meta.SetId(calculatedIndex);
-            var uploadedFile = _database.FileStorage.Upload(GetStringIdFromFilename(meta), meta.Filename, fileStream);
+            string fileId = GetStringIdFromFilename(meta);
+            //if (AttachmentExists(fileId)) _database.FileStorage.Delete(fileId);
+            var uploadedFile = _database.FileStorage.Upload(fileId, meta.Filename, fileStream);
             _database.FileStorage.SetMetadata(uploadedFile.Id, GetMetadataFromAttachment(meta));
-            string fileId = uploadedFile.Id;
+         //   string fileId = uploadedFile.Id;
 
             if (meta.AttachmentType == BufferFileMeta.AttachmentTypes.Attachment)
             {
                 var collection = _database.GetCollection<FileAttachment>();
+                collection.Delete(fileId);  // Delete old entry if exists
                 collection.Insert(new FileAttachment
                 {
                     FileId = fileId,
