@@ -1,5 +1,6 @@
 ﻿using AweCsome.Entities;
 using System;
+using System.Collections.Generic;
 
 namespace AweCsome.Buffer.Interfaces
 {

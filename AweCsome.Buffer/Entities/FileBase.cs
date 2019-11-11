@@ -1,4 +1,5 @@
 ﻿using LiteDB;
+using System;
 
 namespace AweCsome.Buffer.Entities
 {
@@ -15,5 +16,6 @@ namespace AweCsome.Buffer.Entities
         public string Filename { get; set; }
 
         public int? ReferenceId { get; set; }
+        public DateTime Created { get; set; } = DateTime.Now; // TODO: set on Fill()
     }
 }

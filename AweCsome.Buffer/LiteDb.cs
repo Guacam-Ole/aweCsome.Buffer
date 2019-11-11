@@ -6,7 +6,7 @@ using AweCsome.Interfaces;
 using LiteDB;
 
 using log4net;
-
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -184,12 +184,12 @@ namespace AweCsome.Buffer
             _database.FileStorage.Delete(existingFile.Id);
             if (meta.AttachmentType == BufferFileMeta.AttachmentTypes.Attachment)
             {
-                var att = _database.GetCollection<FileAttachment>().FindOne(q => q.ReferenceId == meta.ParentId && q.List == meta.Listname);
+                var att = _database.GetCollection<FileAttachment>().FindOne(q => q.FileId == existingFile.Id);
                 if (att != null) _database.GetCollection<FileAttachment>().Delete(att.FileId);
             }
             else if (meta.AttachmentType == BufferFileMeta.AttachmentTypes.DocLib)
             {
-                var att = _database.GetCollection<FileDoclib>().FindOne(q => q.ReferenceId == meta.ParentId && q.List == meta.Listname);
+                var att = _database.GetCollection<FileDoclib>().FindOne(q => q.FileId == existingFile.Id);
                 if (att != null) _database.GetCollection<FileDoclib>().Delete(att.FileId);
             }
         }
@@ -208,6 +208,8 @@ namespace AweCsome.Buffer
 
         public List<KeyValuePair<DateTime, string>> GetAttachmentNamesFromItem<T>(int id)
         {
+
+            // TODO: New stuff
             var matches = new List<KeyValuePair<DateTime, string>>();
             string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.Attachment, ParentId = id, Listname = _helpers.GetListName<T>() }, true);
             var files = _database.FileStorage.Find(prefix);
@@ -221,16 +223,20 @@ namespace AweCsome.Buffer
 
         public List<string> GetFilenamesFromLibrary<T>(string folder)
         {
-            var matches = new List<string>();
+            var files= _database.GetCollection<FileDoclib>().Find(q => q.Folder == folder && q.List == typeof(T).Name);
+            return files.Select(q => q.Filename).ToList();
 
-            string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.DocLib, Folder = folder, Listname = _helpers.GetListName<T>() }, true);
 
-            var files = _database.FileStorage.Find(prefix);
-            foreach (var file in files)
-            {
-                matches.Add(file.Filename);
-            }
-            return matches;
+            //var matches = new List<string>();
+
+            //string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.DocLib, Folder = folder, Listname = _helpers.GetListName<T>() }, true);
+
+            //var files = _database.FileStorage.Find(prefix);
+            //foreach (var file in files)
+            //{
+            //    matches.Add(file.Filename);
+            //}
+            //return matches;
         }
 
         public void UpdateMetadata(string id, BsonDocument metadata)
@@ -240,22 +246,29 @@ namespace AweCsome.Buffer
 
         public List<AweCsomeFile> GetAttachmentsFromItem<T>(int id)
         {
-            var matches = new List<AweCsomeFile>();
-            string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.Attachment, ParentId = id, Listname = _helpers.GetListName<T>() }, true);
-            var files = _database.FileStorage.Find(prefix);
-            if (matches == null) return null;
-            foreach (var file in files)
+            var files = new List<AweCsomeFile>();
+            var attachments = _database.GetCollection<FileAttachment>().Find(q => q.ReferenceId == id && q.List == typeof(T).Name);
+            // bool hasServerAttachments = attachments.Any(q => q.State == FileBase.AllowedStates.Server);
+            foreach (var attachment in attachments)
             {
-                if (GetMetadataFromAttachment(file.Metadata).ParentId != id) continue;
-                MemoryStream fileStream = new MemoryStream((int)file.Length);
-                file.CopyTo(fileStream);
-                matches.Add(new AweCsomeFile
+                MemoryStream fileStream = null;
+                if (attachment.State != FileBase.AllowedStates.Server)
                 {
-                    Filename = file.Filename,
-                    Stream = fileStream
+                    var file = _database.FileStorage.FindById(attachment.FileId);
+                    fileStream = new MemoryStream((int)file.Length);
+                    file.CopyTo(fileStream);
+                }
+                files.Add(new AweCsomeFile
+                {
+                    Filename = attachment.Filename,
+                    Stream = fileStream,
+                    Created = attachment.Created
                 });
             }
-            return matches;
+
+            // TODO: Only Delete in queue after upload if "Server"
+
+            return files;
         }
 
         public MemoryStream GetAttachmentStreamById(string id, out string filename, out BufferFileMeta meta)
@@ -275,31 +288,74 @@ namespace AweCsome.Buffer
 
         public List<AweCsomeFile> GetFilesFromDocLib<T>(string folder, bool retrieveContent = true) where T : new()
         {
-            var matches = new List<AweCsomeFile>();
-
-            string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.DocLib, Folder = folder, Listname = _helpers.GetListName<T>() }, true);
-
-            var files = _database.FileStorage.Find(prefix);
-            foreach (var file in files)
+            var files = new List<AweCsomeFile>();
+            var attachments = _database.GetCollection<FileDoclib>().Find(q => q.Folder == folder && q.List == typeof(T).Name);
+            // bool hasServerAttachments = attachments.Any(q => q.State == FileBase.AllowedStates.Server);
+            foreach (var attachment in attachments)
             {
-                var meta = GetMetadataFromAttachment(file.Metadata);
+                MemoryStream fileStream = null;
+                var file = _database.FileStorage.FindById(attachment.FileId);
 
-                var libFile = new AweCsomeFile
+                var entity = GetMetadataFromAttachment(file.Metadata);
+                if (retrieveContent && attachment.State != FileBase.AllowedStates.Server)
                 {
-                    Filename = file.Filename,
-                    Entity = meta.AdditionalInformation
-                };
-
-                if (retrieveContent)
-                {
-                    MemoryStream fileStream = new MemoryStream((int)file.Length);
+                    fileStream = new MemoryStream((int)file.Length);
                     file.CopyTo(fileStream);
-                    libFile.Stream = fileStream;
                 }
 
-                matches.Add(libFile);
+                files.Add(new AweCsomeFile
+                {
+                    Filename = attachment.Filename,
+                    Stream = fileStream,
+                    Created = attachment.Created,
+                    Entity=entity
+                });
             }
-            return matches;
+
+            // TODO: Only Delete in queue after upload if "Server"
+
+            return files;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            //var matches = new List<AweCsomeFile>();
+
+            //string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.DocLib, Folder = folder, Listname = _helpers.GetListName<T>() }, true);
+
+            //var files = _database.FileStorage.Find(prefix);
+            //foreach (var file in files)
+            //{
+            //    var meta = GetMetadataFromAttachment(file.Metadata);
+
+            //    var libFile = new AweCsomeFile
+            //    {
+            //        Filename = file.Filename,
+            //        Entity = meta.AdditionalInformation
+            //    };
+
+            //    if (retrieveContent)
+            //    {
+            //        MemoryStream fileStream = new MemoryStream((int)file.Length);
+            //        file.CopyTo(fileStream);
+            //        libFile.Stream = fileStream;
+            //    }
+
+            //    matches.Add(libFile);
+            //}
+            //return matches;
         }
 
         public BsonDocument GetMetadataFromAttachment(BufferFileMeta meta)
@@ -329,19 +385,10 @@ namespace AweCsome.Buffer
             return meta;
         }
 
-        public T GetMetadataFromAttachment<T>(BsonDocument doc) where T : new()
-        {
-            var meta = new T();
-            foreach (var property in typeof(T).GetProperties())
-            {
-                if (property.CanWrite && doc.ContainsKey(property.Name))
-                {
-                    var converter = TypeDescriptor.GetConverter(property.PropertyType);
-                    property.SetValue(meta, converter.ConvertFromString(doc[property.Name]));
-                }
-            }
-            return meta;
-        }
+        //public T GetAdditionalInformationFromAttachment<T>(BsonDocument doc) where T : new()
+        //{
+        //    return GetMetadataFromAttachment(doc);
+        //}
 
         public string AddAttachment(BufferFileMeta meta, Stream fileStream, FileBase.AllowedStates state)
         {

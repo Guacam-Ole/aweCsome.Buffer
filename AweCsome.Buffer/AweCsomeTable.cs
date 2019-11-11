@@ -83,7 +83,7 @@ namespace AweCsome.Buffer
                 Filename = filename,
                 Listname = _helpers.GetListName<T>(),
                 ParentId = id
-            }, filestream, addToQueue? FileBase.AllowedStates.Upload: FileBase.AllowedStates.Local);
+            }, filestream, addToQueue ? FileBase.AllowedStates.Upload : FileBase.AllowedStates.Local);
 
             if (addToQueue)
             {
@@ -122,7 +122,7 @@ namespace AweCsome.Buffer
                 FullyQualifiedName = typeof(T).FullName,
                 Folder = folder,
                 AdditionalInformation = JsonConvert.SerializeObject(entity, Formatting.Indented)
-            }, filestream, addToQueue? FileBase.AllowedStates.Upload: FileBase.AllowedStates.Local);
+            }, filestream, addToQueue ? FileBase.AllowedStates.Upload : FileBase.AllowedStates.Local);
 
             if (addToQueue)
             {
@@ -429,11 +429,15 @@ namespace AweCsome.Buffer
         public List<string> SelectFileNamesFromLibrary<T>(string foldername)
         {
             var guid = StartMeasurement();
+
+
+
+
             var localFiles = _db.GetFilenamesFromLibrary<T>(foldername);
-            var remoteFiles = _baseTable.SelectFileNamesFromLibrary<T>(foldername);
-            localFiles.ForEach(q => remoteFiles.Add(q));
-            StopMeasurement(guid, "SekectFileNamesFromLibrary (LiteDB + SharePoint)");
-            return remoteFiles;
+            //var remoteFiles = _baseTable.SelectFileNamesFromLibrary<T>(foldername);
+            //localFiles.ForEach(q => remoteFiles.Add(q));
+            StopMeasurement(guid, "SelectFileNamesFromLibrary (LiteDB)");
+            return localFiles;
         }
 
         public List<AweCsomeFile> SelectLocalFilesFromLibrary<T>(string foldername, bool retrieveContent = true) where T : new()
@@ -447,11 +451,24 @@ namespace AweCsome.Buffer
         public List<AweCsomeFile> SelectFilesFromLibrary<T>(string foldername, bool retrieveContent = true) where T : new()
         {
             var guid = StartMeasurement();
-            var localFiles = _db.GetFilesFromDocLib<T>(foldername, retrieveContent) ?? new List<AweCsomeFile>();
-            var spFiles = _baseTable.SelectFilesFromLibrary<T>(foldername, retrieveContent) ?? new List<AweCsomeFile>();
-            localFiles.ForEach(q => spFiles.Add(q));
-            StopMeasurement(guid, "SelectFilesFromLibrary (LiteDB + SharePoint)");
-            return spFiles;
+         
+            var localFiles = _db.GetFilesFromDocLib<T>(foldername, retrieveContent);
+            if (!localFiles.Any(q => q.Stream == null) || !retrieveContent)
+            {
+                StopMeasurement(guid, "SelectFilesFromDocLib (Local)");
+                return localFiles;
+            }
+            var spFiles=_baseTable.SelectFilesFromLibrary<T>(foldername, retrieveContent) ?? new List<AweCsomeFile>();
+            foreach (var localFile in localFiles)
+            {
+                if (localFile.Stream == null)
+                {
+                    var match = spFiles.FirstOrDefault(q => q.Filename == localFile.Filename);
+                    if (match != null) localFile.Stream = match.Stream;
+                }
+            }
+            StopMeasurement(guid, "SelectFilesFromItem (Local + SharePoint)");
+            return localFiles;
         }
 
         public T SelectItemById<T>(int id) where T : new()
@@ -639,12 +656,26 @@ namespace AweCsome.Buffer
         public List<AweCsomeFile> SelectFilesFromItem<T>(int id, string filename = null)
         {
             var guid = StartMeasurement();
+
             var localFiles = _db.GetAttachmentsFromItem<T>(id);
             if (filename != null) localFiles = localFiles.Where(q => q.Filename == filename).ToList();
+            if (!localFiles.Any(q => q.Stream == null))
+            {
+                StopMeasurement(guid, "SelectFilesFromItem (Local)");
+                return localFiles;
+            }
+
             var spFiles = _baseTable.SelectFilesFromItem<T>(id, filename) ?? new List<AweCsomeFile>();
-            localFiles.ToList().ForEach(q => spFiles.Add(q));
-            StopMeasurement(guid, "SelectFilesFromItem (SharePoint)");
-            return spFiles;
+            foreach (var localFile in localFiles)
+            {
+                if (localFile.Stream==null)
+                {
+                    var match = spFiles.FirstOrDefault(q => q.Filename == localFile.Filename);
+                    if (match != null) localFile.Stream = match.Stream;
+                }
+            }
+            StopMeasurement(guid, "SelectFilesFromItem (Local + SharePoint)");
+            return localFiles;
         }
 
         public bool HasChangesSince<T>(DateTime compareDate) where T : new()
@@ -720,10 +751,13 @@ namespace AweCsome.Buffer
             StopMeasurement(guid, "StoreAttachmentsInLiteDb (SharePoint)");
         }
 
-        private void ClearDocLibInLiteDB<T>(string folder) where T: AweCsomeListItem, new()
+        private void ClearDocLibInLiteDB<T>(string folder) where T : AweCsomeListItem, new()
         {
+            folder = folder.Replace("\\", "");
+            folder = folder.Replace("/", "");
+
             var collection = _db.GetCollection<FileDoclib>();
-            collection.Delete(q => q.List == typeof(T).Name && q.Folder==folder);
+            collection.Delete(q => q.List == typeof(T).Name && q.Folder.Replace("\\","").Replace("/","") == folder );
         }
 
         private void ClearAttachmentsInLiteDB<T>() where T : AweCsomeListItem, new()
@@ -738,16 +772,21 @@ namespace AweCsome.Buffer
             ClearDocLibInLiteDB<T>(folder);
             var allAttachments = _baseTable.SelectFilesFromLibrary<T>(folder, true);
             if (allAttachments == null) return;
+            int totalFileCount = allAttachments.Count;
+            long totalSize = 0;
+            int count = 0;
             foreach (var file in allAttachments)
             {
                 long fileSize = file.Length;
+                totalSize += fileSize;
+                count++;
                 if (fileSize > maxFilesize)
                 {
                     int? id = null;
-                    if (file.Entity!=null)
+                    if (file.Entity != null)
                     {
                         var idProperty = file.Entity.GetType().GetProperty("Id");
-                        if (idProperty!=null)
+                        if (idProperty != null)
                         {
                             id = (int)idProperty.GetValue(file.Entity);
                         }
@@ -758,7 +797,7 @@ namespace AweCsome.Buffer
                 else
                 {
                     AttachFileToLibrary<T>(file.Folder, file.Filename, file.Stream, (T)file.Entity, false);
-                    _log.Debug($"Stored Attachment '{file.Filename}' into LiteDB ({FileHelper.PrettyLong(fileSize)})");
+                    _log.Debug($"Stored Attachment '{file.Filename}' into LiteDB ({FileHelper.PrettyLong(fileSize)}) [File {count} of {totalFileCount}, {FileHelper.PrettyLong(totalSize)} total]");
                 }
             }
             StopMeasurement(guid, "StoreDocLibInLiteDb (SharePoint)");
@@ -769,7 +808,7 @@ namespace AweCsome.Buffer
             var collection = _db.GetCollection<FileAttachment>();
             collection.Insert(new FileAttachment
             {
-                
+
                 FileId = Guid.NewGuid().ToString(), // Dummy-FileId
                 Filename = filename,
                 List = listname,
@@ -780,6 +819,7 @@ namespace AweCsome.Buffer
 
         private void StoreAttachmentNameToDocLib(string filename, string listname, string folder, int? referenceId)
         {
+            folder.Replace("\\", "/");
             var collection = _db.GetCollection<FileDoclib>();
             collection.Insert(new FileDoclib
             {
@@ -788,7 +828,7 @@ namespace AweCsome.Buffer
                 List = listname,
                 ReferenceId = referenceId,
                 State = FileBase.AllowedStates.Server,
-                Folder=folder
+                Folder = folder
             });
         }
 
