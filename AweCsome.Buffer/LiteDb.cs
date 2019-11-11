@@ -147,6 +147,9 @@ namespace AweCsome.Buffer
             return CleanUpLiteDbId(stringId);
         }
 
+   
+
+
         protected void DropCollection<T>(string name)
         {
             name = name ?? typeof(T).Name;
@@ -389,11 +392,6 @@ namespace AweCsome.Buffer
             meta.SetId(int.Parse(doc[nameof(BufferFileMeta.Id)].AsString));
             return meta;
         }
-
-        //public T GetAdditionalInformationFromAttachment<T>(BsonDocument doc) where T : new()
-        //{
-        //    return GetMetadataFromAttachment(doc);
-        //}
 
         public string AddAttachment(BufferFileMeta meta, Stream fileStream, FileBase.AllowedStates state)
         {

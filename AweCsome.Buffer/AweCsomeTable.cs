@@ -69,23 +69,34 @@ namespace AweCsome.Buffer
 
         public void AttachFileToItem<T>(int id, string filename, Stream filestream)
         {
-            AttachFileToItem<T>(id, filename, filestream, true);
+            AttachFileToItem<T>(id, filename, filestream, false, true);
         }
 
-        private void AttachFileToItem<T>(int id, string filename, Stream filestream, bool addToQueue)
+        private BufferFileMeta GetMetaForFile<T>(BufferFileMeta.AttachmentTypes attachmentType, string filename, int parentId)
+        {
+            return new BufferFileMeta
+            {
+                AttachmentType = attachmentType,
+                Filename = filename,
+                Listname = _helpers.GetListName<T>(),
+                ParentId = parentId
+            };
+        }
+
+        private void AttachFileToItem<T>(int id, string filename, Stream filestream, bool storeNameOnly, bool addToQueue)
         {
             if (filestream != null) filestream.Seek(0, SeekOrigin.Begin);
             var guid = StartMeasurement();
-
-
-            string liteAttachmentId = _db.AddAttachment(new BufferFileMeta
+            var state = FileBase.AllowedStates.Server;
+            if (!storeNameOnly)
             {
-                AttachmentType = BufferFileMeta.AttachmentTypes.Attachment,
-                Filename = filename,
-                Listname = _helpers.GetListName<T>(),
-                ParentId = id
-            }, filestream, addToQueue ? FileBase.AllowedStates.Upload : FileBase.AllowedStates.Local);
-            if (addToQueue)
+                state = addToQueue ? FileBase.AllowedStates.Upload : FileBase.AllowedStates.Local;
+            }
+
+            string liteAttachmentId = _db.AddAttachment(
+                GetMetaForFile<T>(BufferFileMeta.AttachmentTypes.Attachment, filename, id),
+                filestream, state);
+            if (addToQueue && !storeNameOnly)
             {
                 Queue.AddCommand<T>(new Command
                 {
@@ -107,11 +118,17 @@ namespace AweCsome.Buffer
 
         public string AttachFileToLibrary<T>(string folder, string filename, Stream filestream, T entity)
         {
-            return AttachFileToLibrary<T>(folder, filename, filestream, entity, true);
+            return AttachFileToLibrary<T>(folder, filename, filestream, entity, false, true);
         }
 
-        private string AttachFileToLibrary<T>(string folder, string filename, Stream filestream, T entity, bool addToQueue)
+        private string AttachFileToLibrary<T>(string folder, string filename, Stream filestream, T entity, bool nameOnly, bool addToQueue)
         {
+            var updateState = FileBase.AllowedStates.Server;
+            if (!nameOnly)
+            {
+                updateState = addToQueue ? FileBase.AllowedStates.Upload : FileBase.AllowedStates.Local;
+            }
+
             if (filestream != null) filestream.Seek(0, SeekOrigin.Begin);
             var guid = StartMeasurement();
             string liteAttachmentId = _db.AddAttachment(new BufferFileMeta
@@ -122,9 +139,9 @@ namespace AweCsome.Buffer
                 FullyQualifiedName = typeof(T).FullName,
                 Folder = folder,
                 AdditionalInformation = JsonConvert.SerializeObject(entity, Formatting.Indented)
-            }, filestream, addToQueue ? FileBase.AllowedStates.Upload : FileBase.AllowedStates.Local);
+            }, filestream, updateState);
 
-            if (addToQueue)
+            if (addToQueue && !nameOnly)
             {
                 Queue.AddCommand<T>(new Command
                 {
@@ -451,14 +468,14 @@ namespace AweCsome.Buffer
         public List<AweCsomeFile> SelectFilesFromLibrary<T>(string foldername, bool retrieveContent = true) where T : new()
         {
             var guid = StartMeasurement();
-         
+
             var localFiles = _db.GetFilesFromDocLib<T>(foldername, retrieveContent);
             if (!localFiles.Any(q => q.Stream == null) || !retrieveContent)
             {
                 StopMeasurement(guid, "SelectFilesFromDocLib (Local)");
                 return localFiles;
             }
-            var spFiles=_baseTable.SelectFilesFromLibrary<T>(foldername, retrieveContent) ?? new List<AweCsomeFile>();
+            var spFiles = _baseTable.SelectFilesFromLibrary<T>(foldername, retrieveContent) ?? new List<AweCsomeFile>();
             foreach (var localFile in localFiles)
             {
                 if (localFile.Stream == null)
@@ -668,7 +685,7 @@ namespace AweCsome.Buffer
             var spFiles = _baseTable.SelectFilesFromItem<T>(id, filename) ?? new List<AweCsomeFile>();
             foreach (var localFile in localFiles)
             {
-                if (localFile.Stream==null)
+                if (localFile.Stream == null)
                 {
                     var match = spFiles.FirstOrDefault(q => q.Filename == localFile.Filename);
                     if (match != null) localFile.Stream = match.Stream;
@@ -738,12 +755,12 @@ namespace AweCsome.Buffer
                     long fileSize = file.Length;
                     if (fileSize > maxFilesize)
                     {
-                        StoreAttachmentNameToItem(file.Filename, typeof(T).Name, itemId);
+                        AttachFileToItem<T>(itemId, file.Filename, file.Stream, true, false);
                         _log.Debug($"Attachment '{file.Filename}' NOT stored into LiteDB (too big: {FileHelper.PrettyLong(fileSize)})");
                     }
                     else
                     {
-                        AttachFileToItem<T>(itemId, file.Filename, file.Stream, false);
+                        AttachFileToItem<T>(itemId, file.Filename, file.Stream, false, false);
                         _log.Debug($"Stored Attachment '{file.Filename}' into LiteDB ({FileHelper.PrettyLong(fileSize)})");
                     }
                 }
@@ -791,46 +808,49 @@ namespace AweCsome.Buffer
                             id = (int)idProperty.GetValue(file.Entity);
                         }
                     }
-                    StoreAttachmentNameToDocLib(file.Filename, typeof(T).Name, file.Folder, id);
+                    AttachFileToLibrary<T>(file.Folder, file.Filename, file.Stream, (T)file.Entity, true, false);
                     _log.Debug($"File from DocLib '{file.Filename}' NOT stored into LiteDB (too big: {FileHelper.PrettyLong(fileSize)})");
                 }
                 else
                 {
-                    AttachFileToLibrary<T>(file.Folder, file.Filename, file.Stream, (T)file.Entity, false);
+                    AttachFileToLibrary<T>(file.Folder, file.Filename, file.Stream, (T)file.Entity, false, false);
                     _log.Debug($"Stored Attachment '{file.Filename}' into LiteDB ({FileHelper.PrettyLong(fileSize)}) [File {count} of {totalFileCount}, {FileHelper.PrettyLong(totalSize)} total]");
                 }
             }
             StopMeasurement(guid, "StoreDocLibInLiteDb (SharePoint)");
         }
 
-        private void StoreAttachmentNameToItem(string filename, string listname, int referenceId)
-        {
-            var collection = _db.GetCollection<FileAttachment>();
-            collection.Insert(new FileAttachment
-            {
+        //private void StoreAttachmentNameToItem<T>(int id, string filename, string listname, int referenceId)
+        //{
 
-                FileId = Guid.NewGuid().ToString(), // Dummy-FileId
-                Filename = filename,
-                List = listname,
-                ReferenceId = referenceId,
-                State = FileBase.AllowedStates.Server
-            });
-        }
+        //    string fileId = _db.GetStringIdFromFilename(GetMetaForFile<T>(BufferFileMeta.AttachmentTypes.Attachment, filename, id)
 
-        private void StoreAttachmentNameToDocLib(string filename, string listname, string folder, int? referenceId)
-        {
-            folder.Replace("\\", "/");
-            var collection = _db.GetCollection<FileDoclib>();
-            collection.Insert(new FileDoclib
-            {
-                FileId = Guid.NewGuid().ToString(), // Dummy-FileId
-                Filename = filename,
-                List = listname,
-                ReferenceId = referenceId,
-                State = FileBase.AllowedStates.Server,
-                Folder = folder
-            });
-        }
+        //    var collection = _db.GetCollection<FileAttachment>();
+        //    collection.Insert(new FileAttachment
+        //    {
+
+        //        FileId = id,
+        //        Filename = filename,
+        //        List = listname,
+        //        ReferenceId = referenceId,
+        //        State = FileBase.AllowedStates.Server
+        //    });
+        //}
+
+        //private void StoreAttachmentNameToDocLib(int id, string filename, string listname, string folder, int? referenceId)
+        //{
+        //    folder.Replace("\\", "/");
+        //    var collection = _db.GetCollection<FileDoclib>();
+        //    collection.Insert(new FileDoclib
+        //    {
+        //        FileId = id, // Dummy-FileId
+        //        Filename = filename,
+        //        List = listname,
+        //        ReferenceId = referenceId,
+        //        State = FileBase.AllowedStates.Server,
+        //        Folder = folder
+        //    });
+        //}
 
 
 
