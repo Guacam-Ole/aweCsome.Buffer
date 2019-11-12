@@ -303,6 +303,7 @@ namespace AweCsome.Buffer
             {
                 MemoryStream fileStream = null;
                 var file = _database.FileStorage.FindById(attachment.FileId);
+                if (file == null) continue;
 
                 var entity = GetMetadataFromAttachment(file.Metadata);
                 if (retrieveContent && attachment.State != FileBase.AllowedStates.Server)
