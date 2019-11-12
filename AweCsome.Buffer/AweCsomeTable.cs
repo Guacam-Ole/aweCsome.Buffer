@@ -756,12 +756,12 @@ namespace AweCsome.Buffer
                     if (fileSize > maxFilesize)
                     {
                         AttachFileToItem<T>(itemId, file.Filename, file.Stream, true, false);
-                        _log.Debug($"Attachment '{file.Filename}' NOT stored into LiteDB (too big: {FileHelper.PrettyLong(fileSize)})");
+                        _log.Debug($"Attachment '{file.Filename}' NOT stored into LiteDB (too big: {EntityHelper.PrettyLong(fileSize)})");
                     }
                     else
                     {
                         AttachFileToItem<T>(itemId, file.Filename, file.Stream, false, false);
-                        _log.Debug($"Stored Attachment '{file.Filename}' into LiteDB ({FileHelper.PrettyLong(fileSize)})");
+                        _log.Debug($"Stored Attachment '{file.Filename}' into LiteDB ({EntityHelper.PrettyLong(fileSize)})");
                     }
                 }
             }
@@ -809,12 +809,12 @@ namespace AweCsome.Buffer
                         }
                     }
                     AttachFileToLibrary<T>(file.Folder, file.Filename, file.Stream, (T)file.Entity, true, false);
-                    _log.Debug($"File from DocLib '{file.Filename}' NOT stored into LiteDB (too big: {FileHelper.PrettyLong(fileSize)})");
+                    _log.Debug($"File from DocLib '{file.Filename}' NOT stored into LiteDB (too big: {EntityHelper.PrettyLong(fileSize)})");
                 }
                 else
                 {
                     AttachFileToLibrary<T>(file.Folder, file.Filename, file.Stream, (T)file.Entity, false, false);
-                    _log.Debug($"Stored Attachment '{file.Filename}' into LiteDB ({FileHelper.PrettyLong(fileSize)}) [File {count} of {totalFileCount}, {FileHelper.PrettyLong(totalSize)} total]");
+                    _log.Debug($"Stored Attachment '{file.Filename}' into LiteDB ({EntityHelper.PrettyLong(fileSize)}) [File {count} of {totalFileCount}, {EntityHelper.PrettyLong(totalSize)} total]");
                 }
             }
             StopMeasurement(guid, "StoreDocLibInLiteDb (SharePoint)");

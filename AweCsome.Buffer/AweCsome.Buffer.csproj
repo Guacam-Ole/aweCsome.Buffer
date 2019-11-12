@@ -36,7 +36,10 @@
       <HintPath>..\packages\AngleSharp.0.13.0\lib\net46\AngleSharp.dll</HintPath>
     </Reference>
     <Reference Include="AweCsome.Interfaces, Version=4.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\Mydea\MydeaEntityO365\packages\AweCsome.Interfaces.4.0.0-CI-20191105.6\lib\net452\AweCsome.Interfaces.dll</HintPath>
+      <HintPath>..\packages\AweCsome.Interfaces.4.0.0-CI-20191112.1\lib\net452\AweCsome.Interfaces.dll</HintPath>
+    </Reference>
+    <Reference Include="AweCsome.O365, Version=4.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\AweCsome.O365.4.0.0-CI-20191112.1\lib\net452\AweCsome.O365.dll</HintPath>
     </Reference>
     <Reference Include="LiteDB, Version=4.1.4.0, Culture=neutral, PublicKeyToken=4ee40123013c9f27, processorArchitecture=MSIL">
       <HintPath>..\packages\LiteDB.4.1.4\lib\net40\LiteDB.dll</HintPath>
@@ -235,12 +238,6 @@
   <ItemGroup>
     <None Include="app.config" />
     <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\aweCsome\AweCsomeFramework\O365\AweCsome.O365.csproj">
-      <Project>{efef55f5-d4a0-4488-87ce-d76e1f5c63d4}</Project>
-      <Name>AweCsome.O365</Name>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
