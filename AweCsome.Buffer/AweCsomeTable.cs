@@ -375,14 +375,12 @@ namespace AweCsome.Buffer
         {
             var guid = StartMeasurement();
             var item = SelectItemById<T>(id);
-            //var item = _db.GetCollection<T>().FindById(id);
             if (item == null) throw new Exceptions.ItemNotFoundException();
 
             GetLikeData(item, out int likesCount, out Dictionary<int, string> likedBy);
 
             if (likedBy.ContainsKey(userId))
             {
-                // already liked
                 return default(T);
             }
 
@@ -820,37 +818,21 @@ namespace AweCsome.Buffer
             StopMeasurement(guid, "StoreDocLibInLiteDb (SharePoint)");
         }
 
-        //private void StoreAttachmentNameToItem<T>(int id, string filename, string listname, int referenceId)
-        //{
+        public bool IsLikedBy<T>(int id, int userId) where T : new()
+        {
+            return GetLikes<T>(id).ContainsKey(userId);
+        }
 
-        //    string fileId = _db.GetStringIdFromFilename(GetMetaForFile<T>(BufferFileMeta.AttachmentTypes.Attachment, filename, id)
+        public Dictionary<int, string> GetLikes<T>(int id) where T : new()
+        {
+            var item = SelectItemById<T>(id);
+            if (item == null) throw new Exceptions.ItemNotFoundException();
 
-        //    var collection = _db.GetCollection<FileAttachment>();
-        //    collection.Insert(new FileAttachment
-        //    {
+            GetLikeData(item, out int likesCount, out Dictionary<int, string> likedBy);
+            return likedBy;
+        }
 
-        //        FileId = id,
-        //        Filename = filename,
-        //        List = listname,
-        //        ReferenceId = referenceId,
-        //        State = FileBase.AllowedStates.Server
-        //    });
-        //}
 
-        //private void StoreAttachmentNameToDocLib(int id, string filename, string listname, string folder, int? referenceId)
-        //{
-        //    folder.Replace("\\", "/");
-        //    var collection = _db.GetCollection<FileDoclib>();
-        //    collection.Insert(new FileDoclib
-        //    {
-        //        FileId = id, // Dummy-FileId
-        //        Filename = filename,
-        //        List = listname,
-        //        ReferenceId = referenceId,
-        //        State = FileBase.AllowedStates.Server,
-        //        Folder = folder
-        //    });
-        //}
 
 
 
