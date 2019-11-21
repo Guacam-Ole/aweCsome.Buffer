@@ -48,17 +48,17 @@ namespace AweCsome.Buffer
             }
         }
 
-        public List<Command> Read()
+        public List<Command> Read(bool useLocal = false)
         {
-            return GetCollection<Command>(null).FindAll().OrderBy(q => q.Created).ToList();
+            return GetCollection<Command>(null)?.FindAll()?.OrderBy(q => q.Created)?.ToList() ?? new List<Command>();
         }
 
-        public void Update(Command command)
+        public void Update(Command command, bool useLocal = false)
         {
             GetCollection<Command>(null).Update(command);
         }
 
-        public void Delete(Command command)
+        public void Delete(Command command, bool useLocal = false)
         {
             GetCollection<Command>().Delete(command.Id);
         }
@@ -124,10 +124,39 @@ namespace AweCsome.Buffer
             }
         }
 
+        private void UpdateFileBaseReference<T>(string listname, int oldId, int newId) where T : FileBase
+        {
+            var db = new LiteDb(_helpers, _aweCsomeTable, _connectionString);
+            var collection = db.GetCollection<T>();
+            var atts = collection.Find(q => q.List == listname && q.ReferenceId == oldId);
+            if (atts != null)
+            {
+                foreach (var att in atts)
+                {
+                    att.ReferenceId = newId;
+                    collection.Update(att);
+                }
+            }
+        }
+
+        private void UpdateFileBaseReferences(BufferFileMeta.AttachmentTypes attachmentType, string listname, int oldId, int newId)
+        {
+            if (attachmentType == BufferFileMeta.AttachmentTypes.Attachment)
+            {
+                UpdateFileBaseReference<FileAttachment>(listname, oldId, newId);
+            }
+            else if (attachmentType == BufferFileMeta.AttachmentTypes.DocLib)
+            {
+                UpdateFileBaseReference<FileDoclib>(listname, oldId, newId);
+            }
+        }
+
         private void UpdateFileLookups(Type baseType, string changedListname, int oldId, int newId)
         {
             var db = new LiteDb(_helpers, _aweCsomeTable, _connectionString);
-            foreach (var file in db.GetAllFiles())
+            var allFiles = db.GetAllFiles();
+            if (allFiles == null) return;
+            foreach (var file in allFiles)
             {
                 var meta = db.GetMetadataFromAttachment(file.Metadata);
                 if (meta.AttachmentType == BufferFileMeta.AttachmentTypes.Attachment)
@@ -185,6 +214,7 @@ namespace AweCsome.Buffer
                         }
                     }
                 }
+                UpdateFileBaseReferences(meta.AttachmentType, meta.Listname, oldId, newId);
             }
         }
 
@@ -254,8 +284,9 @@ namespace AweCsome.Buffer
                     {
                         foreach (var lookupProperty in lookupProperties)
                         {
+                            if (element[lookupProperty.Name].IsNull) continue;
                             var targetType = element[lookupProperty.Name].GetType();
-                            if (element[lookupProperty.Name] is LiteDB.BsonDocument)
+                            if (targetType == typeof(LiteDB.BsonDocument))
                             {
                                 var bson = (LiteDB.BsonDocument)element[lookupProperty.Name];
                                 var id = bson["_id"];
@@ -266,29 +297,43 @@ namespace AweCsome.Buffer
                                     elementChanged = true;
                                 }
                             }
-                            else if (targetType.IsClass)
+                            else
                             {
-                                var idProperty = targetType.GetProperty("Id");
-                                if (idProperty == null)
+                                bool isId = false;
+                                int? tmpId = null;
+                                try
                                 {
-                                    _log.Warn($"Unexpected LookupType. TargetType: {targetType.FullName}, lookupProperty: {lookupProperty.Name}");
+                                    tmpId = (int?)element[lookupProperty.Name];
+                                    isId = true;
                                 }
-                                else
+                                catch (Exception ex)
                                 {
-                                    var id = idProperty.GetValue(element[lookupProperty.Name]);
-                                    if (id.Equals(oldId))
+                                    _log.Warn($"Cannot cast as int. List to check: {subType.Name} TargetType: {targetType.FullName}, lookupProperty: {lookupProperty.Name}");
+                                }
+                                if (isId)
+                                {
+                                    if (tmpId == oldId)
                                     {
-                                        idProperty.SetValue(element[lookupProperty.Name], newId);
+                                        element[lookupProperty.Name] = newId;
                                         elementChanged = true;
                                     }
                                 }
-                            }
-                            else
-                            {
-                                if ((int?)element[lookupProperty.Name] == oldId)
+                                else
                                 {
-                                    element[lookupProperty.Name] = newId;
-                                    elementChanged = true;
+                                    var idProperty = targetType.GetProperty("Id");
+                                    if (idProperty == null)
+                                    {
+                                        _log.Warn($"Unexpected LookupType. List to check: {subType.Name} TargetType: {targetType.FullName}, lookupProperty: {lookupProperty.Name}");
+                                    }
+                                    else
+                                    {
+                                        var id = idProperty.GetValue(element[lookupProperty.Name]);
+                                        if (id.Equals(oldId))
+                                        {
+                                            idProperty.SetValue(element[lookupProperty.Name], newId);
+                                            elementChanged = true;
+                                        }
+                                    }
                                 }
                             }
                         }

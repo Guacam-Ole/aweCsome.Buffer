@@ -1,8 +1,12 @@
 ﻿using AweCsome.Buffer.Entities;
 using AweCsome.Interfaces;
+
 using log4net;
+
 using Newtonsoft.Json;
+
 using System;
+using System.Configuration;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -15,7 +19,9 @@ namespace AweCsome.Buffer
         private LiteDbQueue _queue;
         private readonly IAweCsomeTable _aweCsomeTable;
         private Type _baseType;
-        public static Exception LastException{ get; set; }
+        public static Exception LastException { get; set; }
+
+  
 
         public QueueCommandExecution(LiteDbQueue queue, IAweCsomeTable awecsomeTable, Type baseType)
         {
@@ -128,6 +134,7 @@ namespace AweCsome.Buffer
                 return false;
             }
         }
+
         public bool Like(Command command)
         {
             try
@@ -185,13 +192,31 @@ namespace AweCsome.Buffer
             try
             {
                 if (HasBeenDeletedBefore(command)) return true;
+                string attachmentId = (string)command.Parameters["AttachmentId"];
                 object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
-                var attachmentStream = _queue.GetAttachmentStreamFromDbById((string)command.Parameters["AttachmentId"], out string filename, out BufferFileMeta meta);
+                var attachmentStream = _queue.GetAttachmentStreamFromDbById(attachmentId, out string filename, out BufferFileMeta meta);
+                long fileSize = attachmentStream.Length;
                 attachmentStream.Seek(0, SeekOrigin.Begin);
 
                 MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.AttachFileToItem<object>(command.ItemId.Value, filename, new MemoryStream()));
                 _queue.CallGenericMethodByName(_aweCsomeTable, method, _baseType, command.FullyQualifiedName, new object[] { command.ItemId.Value, filename, attachmentStream });
-                _queue.DeleteAttachmentFromDbWithoutSyncing(meta);
+
+                var attCollection = _queue.GetCollection<FileAttachment>();
+                var att = attCollection.FindById(attachmentId);
+                if (att != null)
+                {
+                    if (fileSize > Configuration.MaxLocalDocLibSize)
+                    {
+                        att.State = FileBase.AllowedStates.Server;
+                        _queue.DeleteAttachmentFromDbWithoutSyncing(meta);
+                    }
+                    else
+                    {
+                        att.State = FileBase.AllowedStates.Local;
+                    }
+                    attCollection.Update(att);
+                }
+                
                 return true;
             }
             catch (Exception ex)
@@ -207,7 +232,7 @@ namespace AweCsome.Buffer
             try
             {
                 if (HasBeenDeletedBefore(command)) return true;
-         //       object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
+                //       object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
                 string filename = (string)command.Parameters["Filename"];
                 MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.DeleteFileFromItem<object>(command.ItemId.Value, filename));
                 _queue.CallGenericMethodByName(_aweCsomeTable, method, _baseType, command.FullyQualifiedName, new object[] { command.ItemId.Value, filename });
@@ -226,7 +251,9 @@ namespace AweCsome.Buffer
             try
             {
                 if (HasBeenDeletedBefore(command)) return true;
-                var attachmentStream = _queue.GetAttachmentStreamFromDbById((string)command.Parameters["AttachmentId"], out string filename, out BufferFileMeta meta);
+                string attachmentId = (string)command.Parameters["AttachmentId"];
+                var attachmentStream = _queue.GetAttachmentStreamFromDbById(attachmentId, out string filename, out BufferFileMeta meta);
+                long fileSize = attachmentStream.Length;
                 string folder = meta.Folder;
                 object element = null;
                 if (!string.IsNullOrEmpty(meta.AdditionalInformation))
@@ -240,7 +267,23 @@ namespace AweCsome.Buffer
                     MethodInfo method = _queue.GetMethod<IAweCsomeTable>(q => q.AttachFileToLibrary(folder, filename, saveStream, element));
                     _queue.CallGenericMethodByName(_aweCsomeTable, method, _baseType, command.FullyQualifiedName, new object[] { folder, filename, saveStream, element });
                 }
-                _queue.DeleteAttachmentFromDbWithoutSyncing(meta);
+
+                var attCollection = _queue.GetCollection<FileDoclib>();
+                var att = attCollection.FindById(attachmentId);
+                if (att != null)
+                {
+                    if (fileSize > Configuration.MaxLocalDocLibSize)
+                    {
+                        att.State = FileBase.AllowedStates.Server;
+                        _queue.DeleteAttachmentFromDbWithoutSyncing(meta);
+                    }
+                    else
+                    {
+                        att.State = FileBase.AllowedStates.Local;
+                    }
+                    attCollection.Update(att);
+                }
+
                 return true;
             }
             catch (Exception ex)
@@ -256,7 +299,7 @@ namespace AweCsome.Buffer
             try
             {
                 if (HasBeenDeletedBefore(command)) return true;
-            //    object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
+                //    object element = _queue.GetFromDbById(_baseType, command.FullyQualifiedName, command.ItemId.Value);
                 string folder = (string)command.Parameters["Folder"];
                 string filename = (string)command.Parameters["Filename"];
 

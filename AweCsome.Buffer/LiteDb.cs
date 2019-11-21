@@ -1,8 +1,12 @@
-﻿using AweCsome.Buffer.Interfaces;
+﻿using AweCsome.Buffer.Entities;
+using AweCsome.Buffer.Interfaces;
 using AweCsome.Entities;
 using AweCsome.Interfaces;
+
 using LiteDB;
+
 using log4net;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -21,29 +25,106 @@ namespace AweCsome.Buffer
 
         private const string PrefixAttachment = "UploadAttachment_";
         private const string PrefixFile = "UploadFile_";
+
         private enum DbModes { Memory, File, Undefined };
+
         private DbModes _dbMode = DbModes.Undefined;
         private static List<MemoryDatabase> _memoryDb = new List<MemoryDatabase>();
         private static readonly object _dbLock = new object();
-        private LiteDB.LiteDatabase _database;
         protected IAweCsomeHelpers _helpers;
         protected string _connectionString;
         protected IAweCsomeTable _aweCsomeTable;
+        private LiteDatabase _database;
 
         public LiteDb(IAweCsomeHelpers helpers, IAweCsomeTable aweCsomeTable, string connectionString, bool queue = false)
         {
             _connectionString = connectionString;
             _aweCsomeTable = aweCsomeTable;
-            _database = GetDatabase(connectionString, queue);
             _helpers = helpers;
             RegisterMappers();
+            _database = GetDatabase(connectionString, queue);
+        }
+
+        private string SerializePair<T, U>(KeyValuePair<T, U> pair)
+        {
+            try
+            {
+                return $"{pair.Key}[-]{pair.Value}";
+            }
+            catch (Exception)
+            {
+                _log.Error("Cannot serialize pair");
+                throw;
+            }
+        }
+
+        private KeyValuePair<T, U> DeserializePair<T, U>(string serialized)
+        {
+            try
+            {
+                var splitted = serialized.Split(new string[] { "[-]" }, StringSplitOptions.None);
+                T key = (T)Convert.ChangeType(splitted[0], typeof(T));
+                U value = (U)Convert.ChangeType(splitted[1], typeof(U));
+                return new KeyValuePair<T, U>(key, value);
+            }
+            catch (Exception)
+            {
+                _log.Error($"Cannot deserialize pair '{serialized}'");
+                throw;
+            }
+        }
+
+        private string SerializeList<T, U>(List<KeyValuePair<T, U>> list)
+        {
+            return string.Join("~\n", list.Select(q => SerializePair(q)));
+        }
+
+        private List<KeyValuePair<T, U>> DeserializeList<T, U>(string serialized)
+        {
+            var list = new List<KeyValuePair<T, U>>();
+            var elements = serialized.Split(new string[] { "~\n" }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (string element in elements)
+            {
+                list.Add(DeserializePair<T, U>(element));
+            }
+            return list;
+        }
+
+        private string SerializeDictionary<T, U>(Dictionary<T, U> list)
+        {
+            return string.Join("~\n", list.Select(q => SerializePair(q)));
+        }
+
+        private Dictionary<T, U> DeserializeDictionary<T, U>(string serialized)
+        {
+            return DeserializeList<T, U>(serialized).ToDictionary(q => q.Key, q => q.Value);
         }
 
         private void RegisterMappers()
         {
-            BsonMapper.Global.RegisterType<KeyValuePair<int, string>>(
-                serialize: (pair) => $"{pair.Key}[-]{pair.Value}",
-                deserialize: (bson) => new KeyValuePair<int, string>(int.Parse(bson.AsString.Split(new string[] { "[-]" }, StringSplitOptions.None)[0]), bson.AsString.Split(new string[] { "[-]" }, StringSplitOptions.None)[1])
+            BsonMapper.Global.RegisterType(
+                serialize: (pair) => SerializePair(pair),
+                deserialize: (bson) => DeserializePair<int, string>(bson.AsString)
+                );
+            BsonMapper.Global.RegisterType(
+                serialize: (pair) => SerializePair(pair),
+                deserialize: (bson) => DeserializePair<long, string>(bson.AsString)
+                );
+            BsonMapper.Global.RegisterType(
+                serialize: (list) => SerializeList(list),
+                deserialize: (bson) => DeserializeList<long, string>(bson.AsString)
+                );
+            BsonMapper.Global.RegisterType(
+                serialize: (list) => SerializeList(list),
+                deserialize: (bson) => DeserializeList<int, string>(bson.AsString)
+                );
+            BsonMapper.Global.RegisterType(
+                serialize: (list) => SerializeDictionary(list),
+                deserialize: (bson) => DeserializeDictionary<long, string>(bson.AsString)
+                );
+            BsonMapper.Global.RegisterType(
+                serialize: (list) => SerializeDictionary(list),
+                deserialize: (bson) => DeserializeDictionary<int, string>(bson.AsString)
                 );
         }
 
@@ -54,7 +135,7 @@ namespace AweCsome.Buffer
 
         private string CleanUpLiteDbId(string dirtyName)
         {
-            dirtyName = dirtyName.Replace("-", "_");
+            dirtyName = dirtyName.Replace("-", "__").Replace("\\", "_").Replace("/", "_");
             Regex rx = new Regex("[^a-zA-Z0-9_]");
             return rx.Replace(dirtyName, "");
         }
@@ -66,15 +147,17 @@ namespace AweCsome.Buffer
             return CleanUpLiteDbId(stringId);
         }
 
+   
+
+
         protected void DropCollection<T>(string name)
         {
             name = name ?? typeof(T).Name;
             _database.DropCollection(name);
         }
 
-        protected LiteCollection<T> GetCollection<T>(string name)
+        protected LiteCollection<T> GetCollection<T>(string name, bool useLocal = false)
         {
-
             name = name ?? typeof(T).Name;
             return _database.GetCollection<T>(name);
         }
@@ -91,10 +174,10 @@ namespace AweCsome.Buffer
 
         public void EmptyStorage()
         {
-            foreach (var itemId in GetStorage().FindAll().Select(q => q.Id).ToList())
-            {
-                GetStorage().Delete(itemId);
-            }
+            var storageids = GetStorage()?.FindAll()?.Select(q => q.Id)?.ToList();
+            if (storageids == null) return;
+
+            foreach (var itemId in storageids) GetStorage().Delete(itemId);
         }
 
         public void RemoveAttachment(BufferFileMeta meta)
@@ -102,45 +185,61 @@ namespace AweCsome.Buffer
             var existingFile = _database.FileStorage.Find(GetStringIdFromFilename(meta, true)).FirstOrDefault(q => q.Filename == meta.Filename);
             if (existingFile == null) return;
             _database.FileStorage.Delete(existingFile.Id);
-        }
-
-        public void UpdateFileMeta(BufferFileMeta oldMeta, BufferFileMeta newMeta)
-        {
-            string id = GetStringIdFromFilename(oldMeta);
-            var existingFile = _database.FileStorage.Find(id).FirstOrDefault(q => GetMetadataFromAttachment(q.Metadata).ParentId == oldMeta.ParentId);
-            if (existingFile == null)
+            if (meta.AttachmentType == BufferFileMeta.AttachmentTypes.Attachment)
             {
-                _log.Warn($"Cannot change meta for {id}. File cannot be found");
-                return;
+                var att = _database.GetCollection<FileAttachment>().FindOne(q => q.FileId == existingFile.Id);
+                if (att != null) _database.GetCollection<FileAttachment>().Delete(att.FileId);
             }
-            existingFile.Metadata = GetMetadataFromAttachment(newMeta);
+            else if (meta.AttachmentType == BufferFileMeta.AttachmentTypes.DocLib)
+            {
+                var att = _database.GetCollection<FileDoclib>().FindOne(q => q.FileId == existingFile.Id);
+                if (att != null) _database.GetCollection<FileDoclib>().Delete(att.FileId);
+            }
         }
 
-        public List<string> GetAttachmentNamesFromItem<T>(int id)
+        //public void UpdateFileMeta(BufferFileMeta oldMeta, BufferFileMeta newMeta)
+        //{
+        //    string id = GetStringIdFromFilename(oldMeta);
+        //    var existingFile = _database.FileStorage.Find(id).FirstOrDefault(q => GetMetadataFromAttachment(q.Metadata).ParentId == oldMeta.ParentId);
+        //    if (existingFile == null)
+        //    {
+        //        _log.Warn($"Cannot change meta for {id}. File cannot be found");
+        //        return;
+        //    }
+        //    existingFile.Metadata = GetMetadataFromAttachment(newMeta);
+        //}
+
+        public List<KeyValuePair<DateTime, string>> GetAttachmentNamesFromItem<T>(int id)
         {
-            var matches = new List<string>();
+
+            // TODO: New stuff
+            var matches = new List<KeyValuePair<DateTime, string>>();
             string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.Attachment, ParentId = id, Listname = _helpers.GetListName<T>() }, true);
             var files = _database.FileStorage.Find(prefix);
             if (matches == null) return null;
             foreach (var file in files)
             {
-                if (GetMetadataFromAttachment(file.Metadata).ParentId == id) matches.Add(file.Filename);
+                if (GetMetadataFromAttachment(file.Metadata).ParentId == id) matches.Add(new KeyValuePair<DateTime, string>(file.UploadDate, file.Filename));
             }
             return matches;
         }
 
         public List<string> GetFilenamesFromLibrary<T>(string folder)
         {
-            var matches = new List<string>();
+            var files= _database.GetCollection<FileDoclib>().Find(q => q.Folder == folder && q.List == typeof(T).Name);
+            return files.Select(q => q.Filename).ToList();
 
-            string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.DocLib, Folder = folder, Listname = _helpers.GetListName<T>() }, true);
 
-            var files = _database.FileStorage.Find(prefix);
-            foreach (var file in files)
-            {
-                matches.Add(file.Filename);
-            }
-            return matches;
+            //var matches = new List<string>();
+
+            //string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.DocLib, Folder = folder, Listname = _helpers.GetListName<T>() }, true);
+
+            //var files = _database.FileStorage.Find(prefix);
+            //foreach (var file in files)
+            //{
+            //    matches.Add(file.Filename);
+            //}
+            //return matches;
         }
 
         public void UpdateMetadata(string id, BsonDocument metadata)
@@ -148,20 +247,36 @@ namespace AweCsome.Buffer
             _database.FileStorage.SetMetadata(id, metadata);
         }
 
-        public Dictionary<string, Stream> GetAttachmentsFromItem<T>(int id)
+        public List<AweCsomeFile> GetAttachmentsFromItem<T>(int id)
         {
-            var matches = new Dictionary<string, Stream>();
-            string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.Attachment, ParentId = id, Listname = _helpers.GetListName<T>() }, true);
-            var files = _database.FileStorage.Find(prefix);
-            if (matches == null) return null;
-            foreach (var file in files)
+            var files = new List<AweCsomeFile>();
+            var attachments = _database.GetCollection<FileAttachment>().Find(q => q.ReferenceId == id && q.List == typeof(T).Name);
+            // bool hasServerAttachments = attachments.Any(q => q.State == FileBase.AllowedStates.Server);
+            foreach (var attachment in attachments)
             {
-                if (GetMetadataFromAttachment(file.Metadata).ParentId != id) continue;
-                MemoryStream fileStream = new MemoryStream((int)file.Length);
-                file.CopyTo(fileStream);
-                matches.Add(file.Filename, fileStream);
+                MemoryStream fileStream = null;
+                if (attachment.State != FileBase.AllowedStates.Server)
+                {
+                    var file = _database.FileStorage.FindById(attachment.FileId);
+                    fileStream = new MemoryStream((int)file.Length);
+                    file.CopyTo(fileStream);
+                }
+                files.Add(new AweCsomeFile
+                {
+                    Filename = attachment.Filename,
+                    Stream = fileStream,
+                    Created = attachment.Created
+                });
             }
-            return matches;
+
+            // TODO: Only Delete in queue after upload if "Server"
+
+            return files;
+        }
+
+        public bool AttachmentExists(string id)
+        {
+            return _database.FileStorage.Exists(id);
         }
 
         public MemoryStream GetAttachmentStreamById(string id, out string filename, out BufferFileMeta meta)
@@ -179,33 +294,77 @@ namespace AweCsome.Buffer
             return _database.FileStorage.FindAll();
         }
 
-        public List<AweCsomeLibraryFile> GetFilesFromDocLib<T>(string folder, bool retrieveContent = true) where T : new()
+        public List<AweCsomeFile> GetFilesFromDocLib<T>(string folder, bool retrieveContent = true) where T : new()
         {
-            var matches = new List<AweCsomeLibraryFile>();
-
-            string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.DocLib, Folder = folder, Listname = _helpers.GetListName<T>() }, true);
-
-            var files = _database.FileStorage.Find(prefix);
-            foreach (var file in files)
+            var files = new List<AweCsomeFile>();
+            var attachments = _database.GetCollection<FileDoclib>().Find(q => q.Folder == folder && q.List == typeof(T).Name);
+            // bool hasServerAttachments = attachments.Any(q => q.State == FileBase.AllowedStates.Server);
+            foreach (var attachment in attachments)
             {
-                var meta = GetMetadataFromAttachment(file.Metadata);
+                MemoryStream fileStream = null;
+                var file = _database.FileStorage.FindById(attachment.FileId);
+                if (file == null) continue;
 
-                var libFile = new AweCsomeLibraryFile
+                var entity = GetMetadataFromAttachment(file.Metadata);
+                if (retrieveContent && attachment.State != FileBase.AllowedStates.Server)
                 {
-                    Filename = file.Filename,
-                    Entity = meta
-                };
-
-                if (retrieveContent)
-                {
-                    MemoryStream fileStream = new MemoryStream((int)file.Length);
+                    fileStream = new MemoryStream((int)file.Length);
                     file.CopyTo(fileStream);
-                    libFile.Stream = fileStream;
                 }
 
-                matches.Add(libFile);
+                files.Add(new AweCsomeFile
+                {
+                    Filename = attachment.Filename,
+                    Stream = fileStream,
+                    Created = attachment.Created,
+                    Entity=entity
+                });
             }
-            return matches;
+
+            // TODO: Only Delete in queue after upload if "Server"
+
+            return files;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            //var matches = new List<AweCsomeFile>();
+
+            //string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.DocLib, Folder = folder, Listname = _helpers.GetListName<T>() }, true);
+
+            //var files = _database.FileStorage.Find(prefix);
+            //foreach (var file in files)
+            //{
+            //    var meta = GetMetadataFromAttachment(file.Metadata);
+
+            //    var libFile = new AweCsomeFile
+            //    {
+            //        Filename = file.Filename,
+            //        Entity = meta.AdditionalInformation
+            //    };
+
+            //    if (retrieveContent)
+            //    {
+            //        MemoryStream fileStream = new MemoryStream((int)file.Length);
+            //        file.CopyTo(fileStream);
+            //        libFile.Stream = fileStream;
+            //    }
+
+            //    matches.Add(libFile);
+            //}
+            //return matches;
         }
 
         public BsonDocument GetMetadataFromAttachment(BufferFileMeta meta)
@@ -235,21 +394,7 @@ namespace AweCsome.Buffer
             return meta;
         }
 
-        public T GetMetadataFromAttachment<T>(BsonDocument doc) where T : new()
-        {
-            var meta = new T();
-            foreach (var property in typeof(T).GetProperties())
-            {
-                if (property.CanWrite && doc.ContainsKey(property.Name))
-                {
-                    var converter = TypeDescriptor.GetConverter(property.PropertyType);
-                    property.SetValue(meta, converter.ConvertFromString(doc[property.Name]));
-                }
-            }
-            return meta;
-        }
-
-        public string AddAttachment(BufferFileMeta meta, Stream fileStream)
+        public string AddAttachment(BufferFileMeta meta, Stream fileStream, FileBase.AllowedStates state)
         {
             int calculatedIndex = 0;
             string prefix = GetStringIdFromFilename(meta, true);
@@ -261,9 +406,40 @@ namespace AweCsome.Buffer
             }
             calculatedIndex--;
             meta.SetId(calculatedIndex);
-            var uploadedFile = _database.FileStorage.Upload(GetStringIdFromFilename(meta), meta.Filename, fileStream);
+            string fileId = GetStringIdFromFilename(meta);
+            //if (AttachmentExists(fileId)) _database.FileStorage.Delete(fileId);
+            var uploadedFile = _database.FileStorage.Upload(fileId, meta.Filename, fileStream);
             _database.FileStorage.SetMetadata(uploadedFile.Id, GetMetadataFromAttachment(meta));
-            return uploadedFile.Id;
+         //   string fileId = uploadedFile.Id;
+
+            if (meta.AttachmentType == BufferFileMeta.AttachmentTypes.Attachment)
+            {
+                var collection = _database.GetCollection<FileAttachment>();
+                collection.Delete(fileId);  // Delete old entry if exists
+                collection.Insert(new FileAttachment
+                {
+                    FileId = fileId,
+                    Filename = meta.Filename,
+                    List = meta.Listname,
+                    ReferenceId = meta.ParentId,
+                    State = state
+                });
+            }
+            else if (meta.AttachmentType == BufferFileMeta.AttachmentTypes.DocLib)
+            {
+                var collection = _database.GetCollection<FileDoclib>();
+                collection.Insert(new FileDoclib
+                {
+                    FileId = fileId,
+                    Filename = meta.Filename,
+                    List = meta.Listname,
+                    ReferenceId = meta.ParentId,
+                    State = state,
+                    Folder = meta.Folder
+                });
+            }
+
+            return fileId;
         }
 
         public void Delete<T>(int id, string listname)
@@ -322,24 +498,38 @@ namespace AweCsome.Buffer
             return $"Filename=\"{dbName}\"; Password=\"{password}\"";
         }
 
-
         private LiteDatabase GetDatabase(string connectionString, bool isQueue)
         {
-            if (_dbMode == DbModes.Undefined)
+            LiteDatabase database = null;
+            try
             {
-                string dbModeSetting = ConfigurationManager.AppSettings["DbMode"];
-                _dbMode = dbModeSetting == null ? DbModes.File : DbModes.Memory;
-            }
-            lock (_dbLock)
-            {
+                if (_dbMode == DbModes.Undefined)
+                {
+                    string dbModeSetting = ConfigurationManager.AppSettings["DbMode"];
+                    _dbMode = dbModeSetting == null ? DbModes.File : DbModes.Memory;
+                }
+
+                //_log.Debug($"Retrieving Database for '{connectionString}' ");
                 if (_dbMode == DbModes.Memory)
                 {
+                    _log.Debug("FROM MEMORY");
                     var oldDb = _memoryDb.FirstOrDefault(q => q.Filename == connectionString);
                     if (oldDb == null) _memoryDb.Add(new MemoryDatabase { Filename = connectionString, IsQueue = isQueue, Database = new LiteDatabase(new MemoryStream()) });
                     return _memoryDb.First(q => q.Filename == connectionString).Database;
                 }
-                return new LiteDatabase(connectionString);
+                database = new LiteDatabase(connectionString);
+                //_log.Debug("Database retrieved");
             }
+            catch (Exception ex)
+            {
+                _log.Error("Error retrieving Database", ex);
+                throw;
+            }
+            if (database == null)
+            {
+                _log.Warn($"Database is null (but shouldn't) '{connectionString}' {isQueue} ");
+            }
+            return database;
         }
 
         public object CallGenericMethodByName(object baseObject, MethodInfo method, Type baseType, string fullyQualifiedName, object[] parameters)
@@ -378,9 +568,11 @@ namespace AweCsome.Buffer
                     case AweCsomeListUpdate.ChangeTypes.Add:
                         Insert(modification.Value, _helpers.GetListName<T>());
                         break;
+
                     case AweCsomeListUpdate.ChangeTypes.Delete:
                         Delete<T>(modification.Key.Id, _helpers.GetListName<T>());
                         break;
+
                     case AweCsomeListUpdate.ChangeTypes.Update:
                         Update(modification.Key.Id, modification.Value, _helpers.GetListName<T>());
                         break;
@@ -426,14 +618,13 @@ namespace AweCsome.Buffer
                 .GetGenericMethodDefinition();
         }
 
-        public void ReadAllLists(Type baseType, string forbiddenNamespace=null)
+        public void ReadAllLists(Type baseType, string forbiddenNamespace = null)
         {
             foreach (var type in baseType.Assembly.GetTypes())
             {
                 var constructor = type.GetConstructor(Type.EmptyTypes);
-                if (constructor == null)
-                    continue;
-                if (forbiddenNamespace!=null && type.Namespace.Contains(forbiddenNamespace)) continue;
+                if (constructor == null) continue;
+                if (forbiddenNamespace != null && type.Namespace.Contains(forbiddenNamespace)) continue;
                 MethodInfo method = GetMethod<LiteDbQueue>(q => q.ReadAllFromList<object>());
                 CallGenericMethod(this, method, type, null);
             }

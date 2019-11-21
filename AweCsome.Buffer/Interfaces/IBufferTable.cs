@@ -1,4 +1,6 @@
-﻿using System;
+﻿using AweCsome.Entities;
+using System;
+using System.Collections.Generic;
 
 namespace AweCsome.Buffer.Interfaces
 {
@@ -9,5 +11,7 @@ namespace AweCsome.Buffer.Interfaces
         void ReadAllFromList(Type entityType);
         void GetChangesFromAllLists(Type baseType);
         void EmptyStorage();
+        void StoreAttachmentsInLiteDb<T>(long maxSize) where T : AweCsomeListItem, new();
+        void StoreDocLibInLiteDb<T>(long maxSize, string folder) where T : AweCsomeListItem, new();
     }
 }
