@@ -260,7 +260,7 @@ namespace AweCsome.Buffer
                         modifyId = true;
                     }
                 }
-                if (modifyId) break;
+                //if (modifyId) break;
             }
             return modifyId;
         }
