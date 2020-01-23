@@ -197,18 +197,6 @@ namespace AweCsome.Buffer
             }
         }
 
-        //public void UpdateFileMeta(BufferFileMeta oldMeta, BufferFileMeta newMeta)
-        //{
-        //    string id = GetStringIdFromFilename(oldMeta);
-        //    var existingFile = _database.FileStorage.Find(id).FirstOrDefault(q => GetMetadataFromAttachment(q.Metadata).ParentId == oldMeta.ParentId);
-        //    if (existingFile == null)
-        //    {
-        //        _log.Warn($"Cannot change meta for {id}. File cannot be found");
-        //        return;
-        //    }
-        //    existingFile.Metadata = GetMetadataFromAttachment(newMeta);
-        //}
-
         public List<KeyValuePair<DateTime, string>> GetAttachmentNamesFromItem<T>(int id)
         {
 
@@ -228,18 +216,6 @@ namespace AweCsome.Buffer
         {
             var files= _database.GetCollection<FileDoclib>().Find(q => q.Folder == folder && q.List == typeof(T).Name);
             return files.Select(q => q.Filename).ToList();
-
-
-            //var matches = new List<string>();
-
-            //string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.DocLib, Folder = folder, Listname = _helpers.GetListName<T>() }, true);
-
-            //var files = _database.FileStorage.Find(prefix);
-            //foreach (var file in files)
-            //{
-            //    matches.Add(file.Filename);
-            //}
-            //return matches;
         }
 
         public void UpdateMetadata(string id, BsonDocument metadata)
@@ -298,7 +274,6 @@ namespace AweCsome.Buffer
         {
             var files = new List<AweCsomeFile>();
             var attachments = _database.GetCollection<FileDoclib>().Find(q => q.Folder == folder && q.List == typeof(T).Name);
-            // bool hasServerAttachments = attachments.Any(q => q.State == FileBase.AllowedStates.Server);
             foreach (var attachment in attachments)
             {
                 MemoryStream fileStream = null;
@@ -325,46 +300,6 @@ namespace AweCsome.Buffer
 
             return files;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            //var matches = new List<AweCsomeFile>();
-
-            //string prefix = GetStringIdFromFilename(new BufferFileMeta { AttachmentType = BufferFileMeta.AttachmentTypes.DocLib, Folder = folder, Listname = _helpers.GetListName<T>() }, true);
-
-            //var files = _database.FileStorage.Find(prefix);
-            //foreach (var file in files)
-            //{
-            //    var meta = GetMetadataFromAttachment(file.Metadata);
-
-            //    var libFile = new AweCsomeFile
-            //    {
-            //        Filename = file.Filename,
-            //        Entity = meta.AdditionalInformation
-            //    };
-
-            //    if (retrieveContent)
-            //    {
-            //        MemoryStream fileStream = new MemoryStream((int)file.Length);
-            //        file.CopyTo(fileStream);
-            //        libFile.Stream = fileStream;
-            //    }
-
-            //    matches.Add(libFile);
-            //}
-            //return matches;
         }
 
         public BsonDocument GetMetadataFromAttachment(BufferFileMeta meta)
@@ -407,10 +342,8 @@ namespace AweCsome.Buffer
             calculatedIndex--;
             meta.SetId(calculatedIndex);
             string fileId = GetStringIdFromFilename(meta);
-            //if (AttachmentExists(fileId)) _database.FileStorage.Delete(fileId);
             var uploadedFile = _database.FileStorage.Upload(fileId, meta.Filename, fileStream);
             _database.FileStorage.SetMetadata(uploadedFile.Id, GetMetadataFromAttachment(meta));
-         //   string fileId = uploadedFile.Id;
 
             if (meta.AttachmentType == BufferFileMeta.AttachmentTypes.Attachment)
             {
@@ -489,14 +422,14 @@ namespace AweCsome.Buffer
             return _database.GetCollectionNames();
         }
 
-        private string AddPasswordToDbName(string dbName, string cleanedUrl)
-        {
-            string setting_name = $"password_{cleanedUrl}";
-            string password = ConfigurationManager.AppSettings[setting_name];
-            if (password == null) return "Filename=" + dbName;
+        //private string AddPasswordToDbName(string dbName, string cleanedUrl)
+        //{
+        //    string setting_name = $"password_{cleanedUrl}";
+        //    string password = ConfigurationManager.AppSettings[setting_name];
+        //    if (password == null) return "Filename=" + dbName;
 
-            return $"Filename=\"{dbName}\"; Password=\"{password}\"";
-        }
+        //    return $"Filename=\"{dbName}\"; Password=\"{password}\"";
+        //}
 
         private LiteDatabase GetDatabase(string connectionString, bool isQueue)
         {

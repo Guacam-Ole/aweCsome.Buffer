@@ -85,13 +85,15 @@ namespace AweCsome.Buffer
 
         private void AttachFileToItem<T>(int id, string filename, Stream filestream, bool storeNameOnly, bool addToQueue)
         {
-            if (filestream != null) filestream.Seek(0, SeekOrigin.Begin);
+            if (filestream == null) return;
+            filestream.Seek(0, SeekOrigin.Begin);
             var guid = StartMeasurement();
             var state = FileBase.AllowedStates.Server;
             if (!storeNameOnly)
             {
                 state = addToQueue ? FileBase.AllowedStates.Upload : FileBase.AllowedStates.Local;
             }
+
 
             string liteAttachmentId = _db.AddAttachment(
                 GetMetaForFile<T>(BufferFileMeta.AttachmentTypes.Attachment, filename, id),
@@ -123,6 +125,7 @@ namespace AweCsome.Buffer
 
         private string AttachFileToLibrary<T>(string folder, string filename, Stream filestream, T entity, bool nameOnly, bool addToQueue)
         {
+            if (filestream == null) return null;
             var updateState = FileBase.AllowedStates.Server;
             if (!nameOnly)
             {
@@ -827,8 +830,7 @@ namespace AweCsome.Buffer
         {
             var item = SelectItemById<T>(id);
             if (item == null) throw new Exceptions.ItemNotFoundException();
-
-            GetLikeData(item, out int likesCount, out Dictionary<int, string> likedBy);
+            GetLikeData(item, out _, out Dictionary<int, string> likedBy);
             return likedBy;
         }
 
