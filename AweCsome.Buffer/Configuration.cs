@@ -1,18 +1,22 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Specialized;
 using System.Configuration;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace AweCsome.Buffer
 {
     public static class Configuration
     {
+        private const string ConfigSectionName = "awecsome";
+
         private static long GetSizeFromConfig(string configName)
         {
-            string config = ConfigurationManager.AppSettings[configName];
-            if (config == null) return long.MaxValue;   // No Limit
+            var section = (NameValueCollection)ConfigurationManager.GetSection(ConfigSectionName);
+            if (section == null) return long.MaxValue;
+            if (!section.AllKeys.Contains(configName)) return long.MaxValue;
+
+            string config = section[configName];
+            if (string.IsNullOrWhiteSpace(config)) return long.MaxValue;   // No Limit
+
             var parts = config.Split(' ');
             if (parts.Length > 2) return -1; // Unexpected value
             if (parts.Length == 0)
@@ -52,7 +56,7 @@ namespace AweCsome.Buffer
         {
             get
             {
-                return GetSizeFromConfig("AweCsome.Limit.DocLib");
+                return GetSizeFromConfig("BufferLimitDocLib");
             }
         }
 
@@ -60,7 +64,7 @@ namespace AweCsome.Buffer
         {
             get
             {
-                return GetSizeFromConfig("AweCsome.Limit.Attachment");
+                return GetSizeFromConfig("BufferLimitAttachment");
             }
         }
     }
